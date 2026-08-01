@@ -1,0 +1,89 @@
+import { NextRequest, NextResponse } from "next/server";
+import { and, count, desc, eq, sql, type SQL } from "drizzle-orm";
+import { requireAdmin } from "@/lib/admin-auth";
+import { db } from "@/lib/db";
+import { imageHistory, user } from "@/lib/schema";
+
+export async function GET(req: NextRequest) {
+  const session = await requireAdmin();
+  if (!session) {
+    return NextResponse.json({ error: "无权限" }, { status: 403 });
+  }
+
+  const searchParams = new URL(req.url).searchParams;
+  const page = Math.max(1, Number(searchParams.get("page")) || 1);
+  const pageSize = Math.min(
+    100,
+    Math.max(1, Number(searchParams.get("pageSize")) || 50),
+  );
+  const status = searchParams.get("status");
+  const userId = searchParams.get("userId");
+  const filters: SQL[] = [];
+
+  if (status === "success" || status === "failed") {
+    filters.push(eq(imageHistory.status, status));
+  }
+  if (userId) filters.push(eq(imageHistory.userId, userId));
+  const where = filters.length > 0 ? and(...filters) : undefined;
+
+  const [records, totalRows, summaryRows] = await Promise.all([
+    db
+      .select({
+        id: imageHistory.id,
+        userId: imageHistory.userId,
+        userName: user.name,
+        userEmail: user.email,
+        type: imageHistory.type,
+        model: imageHistory.model,
+        prompt: imageHistory.prompt,
+        size: imageHistory.size,
+        quality: imageHistory.quality,
+        imagePath: imageHistory.imagePath,
+        cost: imageHistory.cost,
+        status: imageHistory.status,
+        errorMsg: imageHistory.errorMsg,
+        createdAt: imageHistory.createdAt,
+      })
+      .from(imageHistory)
+      .innerJoin(user, eq(imageHistory.userId, user.id))
+      .where(where)
+      .orderBy(desc(imageHistory.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db.select({ value: count() }).from(imageHistory).where(where),
+    db
+      .select({
+        total: count(),
+        success: sql<number>`sum(case when ${imageHistory.status} = 'success' then 1 else 0 end)`,
+        failed: sql<number>`sum(case when ${imageHistory.status} = 'failed' then 1 else 0 end)`,
+        totalCost: sql<number>`coalesce(sum(${imageHistory.cost}), 0)`,
+      })
+      .from(imageHistory),
+  ]);
+
+  const summary = summaryRows[0] || {
+    total: 0,
+    success: 0,
+    failed: 0,
+    totalCost: 0,
+  };
+  const normalizedSummary = {
+    total: Number(summary.total ?? 0),
+    success: Number(summary.success ?? 0),
+    failed: Number(summary.failed ?? 0),
+    totalCost: Number(summary.totalCost ?? 0),
+  };
+
+  return NextResponse.json({
+    success: true,
+    page,
+    pageSize,
+    total: totalRows[0]?.value ?? 0,
+    summary: normalizedSummary,
+    data: records.map((record) => ({
+      ...record,
+      imageUrl: record.imagePath ? `/${record.imagePath}` : null,
+      imagePath: undefined,
+    })),
+  });
+}

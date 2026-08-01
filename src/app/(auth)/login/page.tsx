@@ -4,44 +4,55 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
-import { Button, Icon, Input } from "animal-island-ui";
-import { AuthIsland } from "@/components/auth-island";
+import { Button, Icon, Input, Notification } from "animal-island-ui";
+import { AuthLayout } from "@/components/auth-layout";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    Notification.destroy("auth-login");
     setLoading(true);
     try {
       const res = await signIn.email({ email, password });
       if (res.error) {
-        setError(res.error.message || "登录失败");
+        Notification.error({
+          key: "auth-login",
+          message: "登录失败",
+          description: res.error.message || "请检查邮箱和密码后重试",
+          position: "topRight",
+        });
         return;
       }
+      Notification.success({
+        key: "auth-login",
+        message: "登录成功",
+        description: "正在进入灵感工坊",
+        position: "topRight",
+      });
       router.push("/generate");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "登录失败");
+      Notification.error({
+        key: "auth-login",
+        message: "登录失败",
+        description: err instanceof Error ? err.message : "请稍后重试",
+        position: "topRight",
+      });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <AuthIsland mode="login">
-        <form onSubmit={handleSubmit} className="island-form">
-          {error && (
-            <div className="island-alert">{error}</div>
-          )}
-
-          <div className="island-field">
-            <label className="island-field-label" htmlFor="login-email">
+    <AuthLayout mode="login">
+        <form onSubmit={handleSubmit} className="lumina-form">
+          <div className="lumina-field">
+            <label className="lumina-field-label" htmlFor="login-email">
               邮箱
             </label>
             <Input
@@ -58,8 +69,8 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="island-field">
-            <label className="island-field-label" htmlFor="login-password">
+          <div className="lumina-field">
+            <label className="lumina-field-label" htmlFor="login-password">
               密码
             </label>
             <Input
@@ -87,12 +98,12 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="island-auth-footer">
+        <p className="lumina-auth-footer">
           还没有账号？{" "}
           <Link href="/register">
             立即注册
           </Link>
         </p>
-    </AuthIsland>
+    </AuthLayout>
   );
 }

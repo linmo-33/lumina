@@ -102,6 +102,76 @@ const migrations: Migration[] = [
         ON quota_logs (user_id);
     `,
   },
+  {
+    id: 2,
+    name: "admin_console_and_system_settings",
+    sql: `
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL,
+        updated_by TEXT,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (updated_by) REFERENCES user(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS admin_audit_logs (
+        id TEXT PRIMARY KEY NOT NULL,
+        operator_id TEXT NOT NULL,
+        target_user_id TEXT,
+        action TEXT NOT NULL,
+        detail TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (operator_id) REFERENCES user(id) ON DELETE CASCADE,
+        FOREIGN KEY (target_user_id) REFERENCES user(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS admin_audit_logs_operator_id_index
+        ON admin_audit_logs (operator_id);
+
+      CREATE INDEX IF NOT EXISTS admin_audit_logs_target_user_id_index
+        ON admin_audit_logs (target_user_id);
+
+      CREATE INDEX IF NOT EXISTS admin_audit_logs_created_at_index
+        ON admin_audit_logs (created_at);
+
+      CREATE INDEX IF NOT EXISTS image_history_created_at_index
+        ON image_history (created_at);
+
+      INSERT OR IGNORE INTO system_settings (key, value, updated_by, updated_at)
+        VALUES
+          ('defaultModel', '"gpt-image-2"', NULL, unixepoch() * 1000),
+          ('allowedModels', '["gpt-image-2","codex-gpt-image-2"]', NULL, unixepoch() * 1000),
+          ('defaultSize', '"1024x1024"', NULL, unixepoch() * 1000),
+          ('allowedSizes', '["1024x1024","1024x1536","1536x1024","1024x1365","1365x1024","1088x1920","1920x1088","2048x2048","2560x1440","1440x2560","3840x2160","2160x3840","auto"]', NULL, unixepoch() * 1000),
+          ('defaultQuality', '"auto"', NULL, unixepoch() * 1000),
+          ('allowedQualities', '["auto","low","medium","high"]', NULL, unixepoch() * 1000),
+          ('maxImagesPerRequest', '10', NULL, unixepoch() * 1000),
+          ('promptMaxLength', '4000', NULL, unixepoch() * 1000),
+          ('defaultUserQuota', '10', NULL, unixepoch() * 1000);
+    `,
+  },
+  {
+    id: 3,
+    name: "align_chatgpt2api_image_options",
+    sql: `
+      UPDATE system_settings
+      SET value = '["1024x1024","1024x1536","1536x1024","1024x1365","1365x1024","1088x1920","1920x1088","2048x2048","2560x1440","1440x2560","3840x2160","2160x3840","auto"]',
+          updated_at = unixepoch() * 1000
+      WHERE key = 'allowedSizes'
+        AND updated_by IS NULL
+        AND value IN (
+          '["1024x1024","1536x1024","1024x1536","auto"]',
+          '["1024x1024","1024x1536","1536x1024","auto"]'
+        );
+
+      UPDATE system_settings
+      SET value = '10',
+          updated_at = unixepoch() * 1000
+      WHERE key = 'maxImagesPerRequest'
+        AND updated_by IS NULL
+        AND value = '4';
+    `,
+  },
 ];
 
 export function runDatabaseMigrations(sqlite: Database.Database) {

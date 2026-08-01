@@ -1,0 +1,18 @@
+diff --git a/dist/es/_virtual/client.js b/dist/es/_virtual/client.js
+index 6643290..eb93124 100644
+--- a/dist/es/_virtual/client.js
++++ b/dist/es/_virtual/client.js
+@@ -1,5 +1,4 @@
+-import { __require as r } from "../node_modules/react-dom/client.js";
+-var i = r();
++import * as i from "react-dom/client";
+ export {
+   i as c
+ };
+diff --git a/dist/cjs/_virtual/client.cjs b/dist/cjs/_virtual/client.cjs
+index b24a169..0c2d914 100644
+--- a/dist/cjs/_virtual/client.cjs
++++ b/dist/cjs/_virtual/client.cjs
+@@ -1 +1 @@
+-"use strict";Object.defineProperty(exports,Symbol.toStringTag,{value:"Module"});const e=require("../node_modules/react-dom/client.cjs");var t=e.__require();exports.clientExports=t;
++"use strict";Object.defineProperty(exports,Symbol.toStringTag,{value:"Module"});const e=require("react-dom/client");exports.clientExports=e;

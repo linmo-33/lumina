@@ -7,14 +7,14 @@ import {
   Card,
   Cursor,
   Divider,
-  Footer,
   Icon,
   Input,
+  Notification,
   Progress,
   Tag,
   Title,
 } from "animal-island-ui";
-import { IslandLoading } from "@/components/island-shell";
+import { AppLoading } from "@/components/app-shell";
 
 interface SetupStatus {
   configured: boolean;
@@ -35,21 +35,21 @@ const checkItems = [
     label: "SQLite 数据库",
     description: "用户、额度和图片记录的数据表",
     required: true,
-    icon: "icon-critterpedia" as const,
+    icon: "icon-camera" as const,
   },
   {
     key: "authSecret" as const,
     label: "认证安全密钥",
     description: "BETTER_AUTH_SECRET，至少 32 位",
     required: true,
-    icon: "icon-miles" as const,
+    icon: "icon-diy" as const,
   },
   {
     key: "appUrl" as const,
     label: "应用访问地址",
     description: "BETTER_AUTH_URL",
     required: false,
-    icon: "icon-map" as const,
+    icon: "icon-chat" as const,
   },
   {
     key: "imageApiUrl" as const,
@@ -63,7 +63,7 @@ const checkItems = [
     label: "生图服务密钥",
     description: "CHATGPT2API_KEY，仅在服务端读取",
     required: false,
-    icon: "icon-diy" as const,
+    icon: "icon-variant" as const,
   },
 ];
 
@@ -81,16 +81,27 @@ export default function SetupPage() {
   const [password, setPassword] = useState("");
   const [initialQuota, setInitialQuota] = useState(100);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [statusLoaded, setStatusLoaded] = useState(false);
 
   const loadStatus = useCallback(async () => {
     try {
       const data = await fetchSetupStatus();
-      setError("");
       setStatus(data);
+      setStatusLoaded(true);
       if (data.configured) setStep(2);
+      Notification.success({
+        key: "setup-status",
+        message: "部署状态已更新",
+        position: "topRight",
+      });
     } catch {
-      setError("无法读取部署状态，请检查服务日志后重试");
+      setStatusLoaded(true);
+      Notification.error({
+        key: "setup-status",
+        message: "无法读取部署状态",
+        description: "请检查服务日志后重试",
+        position: "topRight",
+      });
     }
   }, []);
 
@@ -101,10 +112,18 @@ export default function SetupPage() {
       .then((data) => {
         if (!active) return;
         setStatus(data);
+        setStatusLoaded(true);
         if (data.configured) setStep(2);
       })
       .catch(() => {
-        if (active) setError("无法读取部署状态，请检查服务日志后重试");
+        if (!active) return;
+        setStatusLoaded(true);
+        Notification.error({
+          key: "setup-status",
+          message: "无法读取部署状态",
+          description: "请检查服务日志后重试",
+          position: "topRight",
+        });
       });
 
     return () => {
@@ -114,7 +133,7 @@ export default function SetupPage() {
 
   async function handleSetup(event: React.FormEvent) {
     event.preventDefault();
-    setError("");
+    Notification.destroy("setup-action");
     setLoading(true);
 
     try {
@@ -125,22 +144,39 @@ export default function SetupPage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        setError(data.error || "初始化失败");
+        Notification.error({
+          key: "setup-action",
+          message: "初始化失败",
+          description: data.error || "请检查填写内容后重试",
+          position: "topRight",
+        });
         return;
       }
       setStatus((current) =>
         current ? { ...current, configured: true, adminExists: true } : current,
       );
       setStep(2);
+      Notification.success({
+        key: "setup-action",
+        message: "初始化完成",
+        description: "管理员账号已创建，现在可以登录 Lumina",
+        position: "topRight",
+      });
     } catch (caught: unknown) {
-      setError(caught instanceof Error ? caught.message : "网络请求失败");
+      Notification.error({
+        key: "setup-action",
+        message: "初始化失败",
+        description:
+          caught instanceof Error ? caught.message : "网络请求失败",
+        position: "topRight",
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  if (!status && !error) {
-    return <IslandLoading label="正在检查部署环境…" />;
+  if (!status && !statusLoaded) {
+    return <AppLoading label="正在检查部署环境…" />;
   }
 
   const currentStatus: SetupStatus = status || {
@@ -158,20 +194,20 @@ export default function SetupPage() {
 
   return (
     <Cursor>
-      <div className="island-page setup-page">
-        <div className="island-layer">
+      <div className="lumina-page setup-page">
+        <div className="lumina-layer">
           <main className="setup-shell">
             <header className="setup-hero">
               <div className="setup-logo">
-                <span className="island-brand-mark">
+                <span className="lumina-brand-mark">
                   <Icon name="icon-diy" size={32} />
                 </span>
                 <span>Lumina 部署向导</span>
               </div>
               <Tag color="app-yellow" variant="solid" size="large">
-                FIRST ISLAND TOUR
+                INITIAL SETUP
               </Tag>
-              <h1>欢迎登岛，先完成三项准备。</h1>
+              <h1>欢迎使用 Lumina，先完成三项准备。</h1>
               <p>
                 向导会检查运行环境、创建第一个管理员账号，然后锁定初始化入口。
               </p>
@@ -200,19 +236,17 @@ export default function SetupPage() {
 
               <Divider type="dashed-brown" style={{ margin: "22px 0 28px" }} />
 
-              {error && <div className="island-alert setup-error">{error}</div>}
-
               {step === 0 && (
                 <section>
                   <div className="setup-section-title">
                     <div>
-                      <p className="island-kicker">DEPLOYMENT CHECK</p>
+                      <p className="lumina-kicker">DEPLOYMENT CHECK</p>
                       <Title color="app-teal">部署体检</Title>
                     </div>
                     <Icon name="icon-map" size={58} bounce />
                   </div>
 
-                  <p className="island-description">
+                  <p className="lumina-description">
                     必需项目全部通过后即可创建管理员；推荐项目可以稍后补充，但生图前必须完成配置。
                   </p>
 
@@ -272,7 +306,7 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                       size="large"
                       disabled={!currentStatus.canInitialize}
                       onClick={() => setStep(1)}
-                      icon={<Icon name="icon-helicopter" size={22} />}
+                      icon={<Icon name="icon-design" size={22} />}
                     >
                       下一步：创建管理员
                     </Button>
@@ -284,20 +318,20 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                 <section>
                   <div className="setup-section-title">
                     <div>
-                      <p className="island-kicker">ISLAND REPRESENTATIVE</p>
+                      <p className="lumina-kicker">ADMIN ACCOUNT</p>
                       <Title color="app-yellow">创建首位管理员</Title>
                     </div>
                     <Icon name="icon-miles" size={58} bounce />
                   </div>
 
-                  <p className="island-description">
+                  <p className="lumina-description">
                     该账号拥有用户管理和额度调整权限。初始化完成后，向导将自动锁定。
                   </p>
 
-                  <form onSubmit={handleSetup} className="island-form setup-form">
+                  <form onSubmit={handleSetup} className="lumina-form setup-form">
                     <div className="setup-form-grid">
-                      <div className="island-field">
-                        <label className="island-field-label" htmlFor="setup-name">
+                      <div className="lumina-field">
+                        <label className="lumina-field-label" htmlFor="setup-name">
                           管理员名称
                         </label>
                         <Input
@@ -310,12 +344,12 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                           size="large"
                           shadow
                           allowClear
-                          placeholder="例如：岛主"
+                          placeholder="例如：Lumina 管理员"
                         />
                       </div>
 
-                      <div className="island-field">
-                        <label className="island-field-label" htmlFor="setup-quota">
+                      <div className="lumina-field">
+                        <label className="lumina-field-label" htmlFor="setup-quota">
                           初始创作额度
                         </label>
                         <Input
@@ -328,15 +362,15 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                           onChange={(event) =>
                             setInitialQuota(Number(event.target.value))
                           }
-                          prefix={<Icon name="icon-miles" size={20} />}
+                          prefix={<Icon name="icon-design" size={20} />}
                           size="large"
                           shadow
                         />
                       </div>
                     </div>
 
-                    <div className="island-field">
-                      <label className="island-field-label" htmlFor="setup-email">
+                    <div className="lumina-field">
+                      <label className="lumina-field-label" htmlFor="setup-email">
                         管理员邮箱
                       </label>
                       <Input
@@ -354,8 +388,8 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                       />
                     </div>
 
-                    <div className="island-field">
-                      <label className="island-field-label" htmlFor="setup-password">
+                    <div className="lumina-field">
+                      <label className="lumina-field-label" htmlFor="setup-password">
                         管理员密码
                       </label>
                       <Input
@@ -381,7 +415,7 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                         size="large"
                         loading={loading}
                         disabled={loading || !name || !email || password.length < 8}
-                        icon={<Icon name="icon-miles" size={22} />}
+                        icon={<Icon name="icon-variant" size={22} />}
                       >
                         创建管理员并完成设置
                       </Button>
@@ -393,11 +427,11 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
               {step === 2 && (
                 <section className="setup-complete">
                   <span className="setup-complete-icon">
-                    <Icon name="icon-helicopter" size={76} bounce />
+                    <Icon name="icon-design" size={76} bounce />
                   </span>
-                  <p className="island-kicker">READY FOR TAKEOFF</p>
+                  <p className="lumina-kicker">READY TO CREATE</p>
                   <Title size="large" color="app-teal">
-                    小岛已准备就绪
+                    Lumina 已准备就绪
                   </Title>
                   <p>
                     {currentStatus.configured
@@ -413,7 +447,7 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                     type="primary"
                     size="large"
                     onClick={() => router.push("/login")}
-                    icon={<Icon name="icon-map" size={22} />}
+                    icon={<Icon name="icon-design" size={22} />}
                   >
                     前往登录
                   </Button>
@@ -421,7 +455,10 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
               )}
             </Card>
           </main>
-          <Footer type="sea" seamless className="island-footer" />
+          <footer className="lumina-footer">
+            <span>Lumina</span>
+            <span>让灵感成为画面</span>
+          </footer>
         </div>
       </div>
     </Cursor>

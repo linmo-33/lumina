@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
 // ==================== Better Auth 核心表 ====================
 
@@ -84,5 +84,27 @@ export const quotaLogs = sqliteTable("quota_logs", {
   change: integer("change").notNull(), // +10 或 -1
   reason: text("reason").notNull(), // register | generate | edit | admin_recharge | admin_deduct
   operatorId: text("operator_id"), // 管理员 id，系统操作为 null
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const systemSettings = sqliteTable("system_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedBy: text("updated_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const adminAuditLogs = sqliteTable("admin_audit_logs", {
+  id: text("id").primaryKey(),
+  operatorId: text("operator_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  targetUserId: text("target_user_id").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  action: text("action").notNull(),
+  detail: text("detail"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });

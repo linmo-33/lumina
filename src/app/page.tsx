@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { IslandLoading } from "@/components/island-shell";
+import { AppLoading } from "@/components/app-shell";
 
 export default function HomePage() {
   const router = useRouter();
@@ -16,5 +16,5 @@ export default function HomePage() {
       .catch(() => router.replace("/setup"));
   }, [router]);
 
-  return <IslandLoading label="正在检查小岛状态…" />;
+  return <AppLoading label="正在检查 Lumina 状态…" />;
 }

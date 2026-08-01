@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
+import { unlink } from "node:fs/promises";
+import path from "node:path";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { imageHistory } from "@/lib/schema";
@@ -49,8 +51,87 @@ export async function GET(req: NextRequest) {
         createdAt: r.createdAt,
       })),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[history]", err);
     return NextResponse.json({ error: "获取历史失败" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+
+    const body = await req.json().catch(() => null);
+    const imageId =
+      body && typeof body.id === "string" ? body.id.trim() : "";
+    if (!imageId || imageId.length > 100) {
+      return NextResponse.json({ error: "作品参数无效" }, { status: 400 });
+    }
+
+    const [record] = await db
+      .select({ imagePath: imageHistory.imagePath })
+      .from(imageHistory)
+      .where(
+        and(
+          eq(imageHistory.id, imageId),
+          eq(imageHistory.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+
+    if (!record) {
+      return NextResponse.json({ error: "作品不存在" }, { status: 404 });
+    }
+
+    const deletion = db
+      .delete(imageHistory)
+      .where(
+        and(
+          eq(imageHistory.id, imageId),
+          eq(imageHistory.userId, session.user.id),
+        ),
+      )
+      .run();
+    if (deletion.changes === 0) {
+      return NextResponse.json({ error: "作品不存在" }, { status: 404 });
+    }
+
+    if (record.imagePath) {
+      const uploadsRoot = path.resolve(process.cwd(), "uploads");
+      const absolutePath = path.resolve(process.cwd(), record.imagePath);
+      if (
+        absolutePath.startsWith(`${uploadsRoot}${path.sep}`) &&
+        path.extname(absolutePath)
+      ) {
+        try {
+          await unlink(absolutePath);
+        } catch (fileError) {
+          const code =
+            fileError && typeof fileError === "object" && "code" in fileError
+              ? (fileError as { code?: string }).code
+              : undefined;
+          if (code !== "ENOENT") {
+            console.error(
+              "[history:delete-file]",
+              fileError instanceof Error ? fileError.message : "文件删除失败",
+            );
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error(
+      "[history:delete]",
+      error instanceof Error ? error.message : "作品删除失败",
+    );
+    return NextResponse.json({ error: "作品删除失败" }, { status: 500 });
   }
 }

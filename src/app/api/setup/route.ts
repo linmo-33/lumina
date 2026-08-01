@@ -102,26 +102,36 @@ export async function POST(req: NextRequest) {
         password: input.password,
       },
     });
+    const [createdUser] = await db
+      .select({ quota: user.quota })
+      .from(user)
+      .where(eq(user.id, result.user.id))
+      .limit(1);
+    const initialQuotaChange = input.initialQuota - (createdUser?.quota ?? 0);
 
-    await db.transaction(async (tx) => {
-      await tx
+    db.transaction((tx) => {
+      tx
         .update(user)
         .set({
           role: "admin",
           quota: input.initialQuota,
           updatedAt: new Date(),
         })
-        .where(eq(user.id, result.user.id));
+        .where(eq(user.id, result.user.id))
+        .run();
 
-      if (input.initialQuota !== 10) {
-        await tx.insert(quotaLogs).values({
-          id: randomUUID(),
-          userId: result.user.id,
-          change: input.initialQuota - 10,
-          reason: "initial_setup",
-          operatorId: result.user.id,
-          createdAt: new Date(),
-        });
+      if (initialQuotaChange !== 0) {
+        tx
+          .insert(quotaLogs)
+          .values({
+            id: randomUUID(),
+            userId: result.user.id,
+            change: initialQuotaChange,
+            reason: "initial_setup",
+            operatorId: result.user.id,
+            createdAt: new Date(),
+          })
+          .run();
       }
     });
 
