@@ -1062,7 +1062,7 @@ export default function AdminConsole({
         <Card className="admin-sidebar">
           <div className="admin-sidebar-heading">
             <span className="admin-sidebar-mark">
-              <Icon name="icon-miles" size={22} />
+              <Icon name="icon-map" size={22} />
             </span>
             <div>
               <strong>管理控制台</strong>

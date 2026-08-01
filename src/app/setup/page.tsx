@@ -200,7 +200,7 @@ export default function SetupPage() {
             <header className="setup-hero">
               <div className="setup-logo">
                 <span className="lumina-brand-mark">
-                  <Icon name="icon-diy" size={32} />
+                  <span className="lumina-logo-glyph" aria-hidden="true" />
                 </span>
                 <span>Lumina 部署向导</span>
               </div>

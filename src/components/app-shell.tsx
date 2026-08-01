@@ -92,7 +92,7 @@ export function AppShell({
             <Card className="lumina-header-card">
               <Link href="/generate" className="lumina-brand">
                 <span className="lumina-brand-mark">
-                  <Icon name="icon-design" size={26} />
+                  <span className="lumina-logo-glyph" aria-hidden="true" />
                 </span>
                 <span>Lumina</span>
               </Link>
@@ -187,7 +187,7 @@ export function AppLoading({ label = "正在加载 Lumina…" }: { label?: strin
       <Card className="lumina-loading-card">
         <div className="lumina-loading-brand">
           <span className="lumina-loading-mark">
-            <Icon name="icon-design" size={32} />
+            <span className="lumina-logo-glyph" aria-hidden="true" />
           </span>
           <div>
             <strong>Lumina</strong>

@@ -4,7 +4,6 @@ import {
   Card,
   Cursor,
   Divider,
-  Icon,
   Tag,
   Title,
 } from "animal-island-ui";
@@ -25,7 +24,7 @@ export function AuthLayout({ mode, children }: AuthLayoutProps) {
             <section className="lumina-auth-intro">
               <div className="lumina-auth-logo">
                 <span className="lumina-brand-mark">
-                  <Icon name="icon-design" size={34} />
+                  <span className="lumina-logo-glyph" aria-hidden="true" />
                 </span>
                 <span>Lumina</span>
               </div>
