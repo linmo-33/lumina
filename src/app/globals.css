@@ -36,6 +36,113 @@ body {
   font-family: "Nunito", "Noto Sans SC", system-ui, sans-serif;
 }
 
+.lumina-notice-viewport {
+  position: fixed;
+  z-index: 10000;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: min(380px, calc(100vw - 32px));
+  gap: 10px;
+  pointer-events: none;
+}
+
+.lumina-notice {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 28px;
+  gap: 10px;
+  align-items: start;
+  padding: 14px;
+  color: var(--lumina-brown);
+  background: rgba(255, 253, 247, 0.98);
+  border: 1px solid rgba(85, 76, 64, 0.14);
+  border-left: 4px solid var(--lumina-teal);
+  border-radius: 16px;
+  box-shadow: 0 6px 0 rgba(85, 76, 64, 0.09), 0 18px 42px rgba(85, 76, 64, 0.14);
+  pointer-events: auto;
+  animation: lumina-notice-in 180ms ease-out;
+}
+
+.lumina-notice.is-warning {
+  border-left-color: var(--lumina-yellow);
+}
+
+.lumina-notice.is-error {
+  border-left-color: var(--lumina-pink);
+}
+
+.lumina-notice-symbol {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  background: var(--lumina-teal);
+  border-radius: 50%;
+}
+
+.lumina-notice.is-warning .lumina-notice-symbol {
+  color: var(--lumina-brown);
+  background: var(--lumina-yellow);
+}
+
+.lumina-notice.is-error .lumina-notice-symbol {
+  background: #dc7182;
+}
+
+.lumina-notice-content {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.lumina-notice-content strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.lumina-notice-content > span {
+  color: var(--lumina-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lumina-notice-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  color: var(--lumina-muted);
+  font-size: 18px;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.lumina-notice-close:hover {
+  color: var(--lumina-brown);
+  background: rgba(85, 76, 64, 0.07);
+}
+
+@keyframes lumina-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 button,
 input,
 textarea,
@@ -844,6 +951,55 @@ select {
 .lumina-auth-card {
   padding: 30px !important;
   box-shadow: 0 7px 0 rgba(91, 76, 56, 0.1), 0 20px 46px rgba(82, 70, 53, 0.1) !important;
+}
+
+.lumina-verification-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px dashed #b8aa91;
+  border-radius: 20px;
+  background: #eef5f1;
+}
+
+.lumina-verification-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 16px;
+  background: #fffdf7;
+  box-shadow: 0 3px 0 rgba(91, 76, 56, 0.1);
+}
+
+.lumina-verification-summary div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lumina-verification-summary strong {
+  color: var(--lumina-brown);
+  font-size: 14px;
+}
+
+.lumina-verification-summary div span {
+  overflow: hidden;
+  color: var(--lumina-teal-dark);
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lumina-verification-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .lumina-auth-footer {

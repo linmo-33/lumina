@@ -7,7 +7,7 @@ Lumina 是一个自托管 AI 图像生成平台，通过兼容 OpenAI Images API
 
 ## 功能
 
-- 邮箱密码注册、登录与会话管理
+- 邮箱密码注册、Resend 验证码认证、登录与会话管理
 - 首次部署向导和首位管理员创建
 - 文生图、批量生成及多种尺寸与质量选项
 - 支持 `gpt-image-2`
@@ -24,6 +24,7 @@ Lumina 是一个自托管 AI 图像生成平台，通过兼容 OpenAI Images API
 - Next.js 16 App Router、React 18、TypeScript
 - `animal-island-ui`、Tailwind CSS 4
 - Better Auth
+- Resend
 - Drizzle ORM、better-sqlite3
 - OpenAI SDK
 - pnpm
@@ -72,6 +73,8 @@ BETTER_AUTH_URL=https://lumina.example.com
 BETTER_AUTH_SECRET=请替换为至少32位的随机字符串
 CHATGPT2API_BASE_URL=https://your-chatgpt2api.example.com/v1
 CHATGPT2API_KEY=请替换为真实密钥
+RESEND_API_KEY=re_请替换为真实密钥
+RESEND_FROM_EMAIL=Lumina <noreply@your-verified-domain.example>
 ```
 
 配置说明：
@@ -80,6 +83,8 @@ CHATGPT2API_KEY=请替换为真实密钥
 | --- | --- | --- |
 | `BETTER_AUTH_URL` | 是 | Lumina 的外部访问地址，本地部署可使用 `http://localhost:3000` |
 | `BETTER_AUTH_SECRET` | 是 | Better Auth 签名密钥，至少 32 位，生产环境必须使用随机值 |
+| `RESEND_API_KEY` | 是 | Resend API 密钥，仅在服务端用于发送邮箱验证码 |
+| `RESEND_FROM_EMAIL` | 是 | 验证码发件人，域名必须已在 Resend 中完成验证，可填写 `Lumina <noreply@example.com>` 格式 |
 | `CHATGPT2API_BASE_URL` | 是 | chatgpt2api 的 OpenAI 兼容 API 地址，通常以 `/v1` 结尾 |
 | `CHATGPT2API_KEY` | 是 | chatgpt2api 的访问密钥，仅在服务端读取 |
 
@@ -109,7 +114,7 @@ docker login ghcr.io
 
 打开 `http://localhost:3000`。应用会自动进入 `/setup`，检查数据库和必要环境变量，然后引导创建首位管理员。
 
-首位管理员创建成功后，初始化入口会自动锁定。后续注册用户的默认额度可在管理后台修改。
+首位管理员创建成功后，初始化入口会自动锁定。后续注册用户必须完成邮箱验证码认证，默认额度可在管理后台修改。验证码 10 分钟内有效，同一地址每分钟最多请求 3 次。
 
 ### 更新镜像
 
@@ -193,6 +198,8 @@ src/components/             公共界面组件
 src/lib/schema.ts           Drizzle 表结构
 src/lib/migrations.ts       SQLite 版本化迁移
 src/lib/openai.ts           chatgpt2api 客户端
+src/lib/email.ts            Resend 邮件发送服务
+src/lib/email-templates/    验证码邮件内容模板
 src/lib/image-store.ts      本地图片存储
 data/                       运行时数据库目录
 uploads/                    运行时图片目录

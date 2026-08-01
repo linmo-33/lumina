@@ -8,13 +8,13 @@ import {
   Card,
   Divider,
   Icon,
-  Notification,
   Progress,
   Select,
   Tag,
   Title,
 } from "animal-island-ui";
 import { AppLoading, AppShell } from "@/components/app-shell";
+import { notify } from "@/components/app-notifications";
 import {
   CHATGPT2API_PAGE_MAX_IMAGES,
   CHATGPT2API_SIZE_OPTIONS,
@@ -99,7 +99,7 @@ export default function GeneratePage() {
         setN((current) => Math.min(current, nextConfig.maxImagesPerRequest));
       })
       .catch(() =>
-        Notification.error({
+        notify.error({
           key: "image-config",
           message: "生图配置加载失败",
           description: "当前将使用默认配置，请刷新页面后重试",
@@ -166,7 +166,7 @@ export default function GeneratePage() {
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
-    Notification.destroy("image-generate");
+    notify.destroy("image-generate");
     setGenerationProgress(8);
     setLoading(true);
     setResults([]);
@@ -178,7 +178,7 @@ export default function GeneratePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        Notification.error({
+        notify.error({
           key: "image-generate",
           message: "生图失败",
           description: data.error || "请稍后重试",
@@ -190,14 +190,14 @@ export default function GeneratePage() {
       setResults(images);
       setRemaining(data.remainingQuota);
       if (data.warning) {
-        Notification.warning({
+        notify.warning({
           key: "image-generate",
           message: "部分图片生成完成",
           description: data.warning,
           position: "topRight",
         });
       } else {
-        Notification.success({
+        notify.success({
           key: "image-generate",
           message: "图片生成完成",
           description: `本次共生成 ${images.length} 张图片，已保存到作品库`,
@@ -207,7 +207,7 @@ export default function GeneratePage() {
       setGenerationProgress(100);
       await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
     } catch (err: unknown) {
-      Notification.error({
+      notify.error({
         key: "image-generate",
         message: "生图失败",
         description: err instanceof Error ? err.message : "网络请求失败",

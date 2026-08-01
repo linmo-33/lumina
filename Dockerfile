@@ -14,6 +14,7 @@ RUN apt-get update \
     && apt-get clean
 
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder

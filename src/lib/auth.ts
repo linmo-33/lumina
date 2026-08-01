@@ -1,8 +1,13 @@
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { emailOTP } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
+import {
+  sendVerificationCodeEmail,
+  VERIFICATION_CODE_EXPIRES_IN_SECONDS,
+} from "./email";
 import * as schema from "./schema";
 import { getSystemSettings } from "./system-settings";
 
@@ -18,8 +23,10 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    // 本地开发先关闭邮箱验证
-    requireEmailVerification: false,
+    requireEmailVerification: true,
+  },
+  emailVerification: {
+    autoSignInAfterVerification: true,
   },
   user: {
     additionalFields: {
@@ -85,6 +92,20 @@ export const auth = betterAuth({
     expiresIn: 60 * 60 * 24 * 7, // 7 天
     updateAge: 60 * 60 * 24, // 每天更新一次
   },
+  plugins: [
+    emailOTP({
+      expiresIn: VERIFICATION_CODE_EXPIRES_IN_SECONDS,
+      allowedAttempts: 5,
+      storeOTP: "hashed",
+      rateLimit: {
+        window: 60,
+        max: 3,
+      },
+      async sendVerificationOTP({ email, otp, type }) {
+        await sendVerificationCodeEmail({ email, code: otp, type });
+      },
+    }),
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;

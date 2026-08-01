@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "animal-island-ui/style";
+import { AppNotifications } from "@/components/app-notifications";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +18,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="h-full antialiased">
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <AppNotifications />
+        {children}
+      </body>
     </html>
   );
 }

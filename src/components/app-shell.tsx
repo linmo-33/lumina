@@ -8,10 +8,10 @@ import {
   Card,
   Cursor,
   Icon,
-  Notification,
   Wallet,
 } from "animal-island-ui";
 import { AppFooter } from "@/components/app-footer";
+import { notify } from "@/components/app-notifications";
 import { signOut } from "@/lib/auth-client";
 
 type ActivePage = "generate" | "gallery" | "admin";
@@ -63,20 +63,20 @@ export function AppShell({
 
   async function handleSignOut() {
     setMenuOpen(false);
-    Notification.destroy("sign-out");
+    notify.destroy("sign-out");
     try {
       const result = await signOut();
       if (result.error) {
         throw new Error(result.error.message || "退出登录失败");
       }
-      Notification.success({
+      notify.success({
         key: "sign-out",
         message: "已退出登录",
         position: "topRight",
       });
       router.push("/login");
     } catch (caught) {
-      Notification.error({
+      notify.error({
         key: "sign-out",
         message: "退出登录失败",
         description: caught instanceof Error ? caught.message : "请稍后重试",

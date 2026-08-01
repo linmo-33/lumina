@@ -12,7 +12,6 @@ import {
   Icon,
   Input,
   Modal,
-  Notification,
   Select,
   Table,
   Tag,
@@ -24,6 +23,7 @@ import {
   CHATGPT2API_SIZE_OPTIONS,
 } from "@/lib/image-options";
 import { AppLoading, AppShell } from "@/components/app-shell";
+import { notify } from "@/components/app-notifications";
 import { useSession } from "@/lib/auth-client";
 
 interface UserRow {
@@ -341,14 +341,14 @@ export default function AdminConsole({
       );
       if (settingsPayload) setSettings(settingsPayload.data);
       if (showSuccess) {
-        Notification.success({
+        notify.success({
           key: "admin-data",
           message: "后台数据已刷新",
           position: "topRight",
         });
       }
     } catch (caught) {
-      Notification.error({
+      notify.error({
         key: "admin-data",
         message: "后台数据加载失败",
         description:
@@ -397,7 +397,7 @@ export default function AdminConsole({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        Notification.error({
+        notify.error({
           key: "admin-user-action",
           message: "操作失败",
           description: data.error || `请求失败（${response.status}）`,
@@ -405,7 +405,7 @@ export default function AdminConsole({
         });
         return false;
       }
-      Notification.success({
+      notify.success({
         key: "admin-user-action",
         message: "操作成功",
         description: successMessage,
@@ -414,7 +414,7 @@ export default function AdminConsole({
       await loadAdminData();
       return true;
     } catch (caught) {
-      Notification.error({
+      notify.error({
         key: "admin-user-action",
         message: "操作失败",
         description:
@@ -440,7 +440,7 @@ export default function AdminConsole({
   async function applyCustomQuota(userId: string, direction: 1 | -1) {
     const amount = Number(quotaInputs[userId]);
     if (!Number.isSafeInteger(amount) || amount < 1 || amount > 100000) {
-      Notification.error({
+      notify.error({
         key: "admin-custom-quota",
         message: "请输入有效额度",
         description: "额度必须是 1 至 100000 之间的整数",
@@ -473,7 +473,7 @@ export default function AdminConsole({
       if (!response.ok) throw new Error(data.error || "用户详情加载失败");
       setSelectedUser(data.data);
     } catch (caught) {
-      Notification.error({
+      notify.error({
         key: "admin-user-detail",
         message: "用户详情加载失败",
         description:
@@ -511,14 +511,14 @@ export default function AdminConsole({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "配置保存失败");
       setSettings(data.data);
-      Notification.success({
+      notify.success({
         key: "admin-settings",
         message: "系统配置已保存",
         description: "新的生图请求会立即使用该策略",
         position: "topRight",
       });
     } catch (caught) {
-      Notification.error({
+      notify.error({
         key: "admin-settings",
         message: "配置保存失败",
         description:

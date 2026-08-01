@@ -9,13 +9,13 @@ import {
   Divider,
   Icon,
   Input,
-  Notification,
   Progress,
   Tag,
   Title,
 } from "animal-island-ui";
 import { AppFooter } from "@/components/app-footer";
 import { AppLoading } from "@/components/app-shell";
+import { notify } from "@/components/app-notifications";
 
 interface SetupStatus {
   configured: boolean;
@@ -25,6 +25,8 @@ interface SetupStatus {
     database: boolean;
     authSecret: boolean;
     appUrl: boolean;
+    emailApiKey: boolean;
+    emailFrom: boolean;
     imageApiUrl: boolean;
     imageApiKey: boolean;
   };
@@ -44,6 +46,20 @@ const checkItems = [
     description: "BETTER_AUTH_SECRET，至少 32 位",
     required: true,
     icon: "icon-diy" as const,
+  },
+  {
+    key: "emailApiKey" as const,
+    label: "Resend 邮件服务",
+    description: "RESEND_API_KEY，仅在服务端读取",
+    required: true,
+    icon: "icon-chat" as const,
+  },
+  {
+    key: "emailFrom" as const,
+    label: "验证码发件人",
+    description: "RESEND_FROM_EMAIL，需使用已验证域名",
+    required: true,
+    icon: "icon-design" as const,
   },
   {
     key: "appUrl" as const,
@@ -90,14 +106,14 @@ export default function SetupPage() {
       setStatus(data);
       setStatusLoaded(true);
       if (data.configured) setStep(2);
-      Notification.success({
+      notify.success({
         key: "setup-status",
         message: "部署状态已更新",
         position: "topRight",
       });
     } catch {
       setStatusLoaded(true);
-      Notification.error({
+      notify.error({
         key: "setup-status",
         message: "无法读取部署状态",
         description: "请检查服务日志后重试",
@@ -119,7 +135,7 @@ export default function SetupPage() {
       .catch(() => {
         if (!active) return;
         setStatusLoaded(true);
-        Notification.error({
+        notify.error({
           key: "setup-status",
           message: "无法读取部署状态",
           description: "请检查服务日志后重试",
@@ -134,7 +150,7 @@ export default function SetupPage() {
 
   async function handleSetup(event: React.FormEvent) {
     event.preventDefault();
-    Notification.destroy("setup-action");
+    notify.destroy("setup-action");
     setLoading(true);
 
     try {
@@ -145,7 +161,7 @@ export default function SetupPage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        Notification.error({
+        notify.error({
           key: "setup-action",
           message: "初始化失败",
           description: data.error || "请检查填写内容后重试",
@@ -157,14 +173,14 @@ export default function SetupPage() {
         current ? { ...current, configured: true, adminExists: true } : current,
       );
       setStep(2);
-      Notification.success({
+      notify.success({
         key: "setup-action",
         message: "初始化完成",
         description: "管理员账号已创建，现在可以登录 Lumina",
         position: "topRight",
       });
     } catch (caught: unknown) {
-      Notification.error({
+      notify.error({
         key: "setup-action",
         message: "初始化失败",
         description:
@@ -188,6 +204,8 @@ export default function SetupPage() {
       database: false,
       authSecret: false,
       appUrl: false,
+      emailApiKey: false,
+      emailFrom: false,
       imageApiUrl: false,
       imageApiKey: false,
     },
@@ -285,7 +303,9 @@ export default function SetupPage() {
                     </div>
                   )}
 
-                  {!currentStatus.checks.authSecret && (
+                  {(!currentStatus.checks.authSecret ||
+                    !currentStatus.checks.emailApiKey ||
+                    !currentStatus.checks.emailFrom) && (
                     <div className="setup-help-card">
                       <strong>补全服务器环境变量</strong>
                       <p>
@@ -293,6 +313,8 @@ export default function SetupPage() {
                       </p>
                       <pre>{`BETTER_AUTH_SECRET=至少32位随机字符串
 BETTER_AUTH_URL=https://你的域名
+RESEND_API_KEY=re_你的服务密钥
+RESEND_FROM_EMAIL=Lumina <noreply@你的已验证域名>
 CHATGPT2API_BASE_URL=https://生图服务/v1
 CHATGPT2API_KEY=你的服务密钥`}</pre>
                     </div>

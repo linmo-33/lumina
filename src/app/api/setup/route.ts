@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getEmailServiceStatus } from "@/lib/email";
 import { quotaLogs, user } from "@/lib/schema";
 
 export const dynamic = "force-dynamic";
@@ -39,10 +40,13 @@ async function getSetupState() {
     databaseReady = false;
   }
 
+  const emailService = getEmailServiceStatus();
   const checks = {
     database: databaseReady,
     authSecret: hasConfiguredSecret(),
     appUrl: Boolean(process.env.BETTER_AUTH_URL),
+    emailApiKey: emailService.apiKey,
+    emailFrom: emailService.from,
     imageApiUrl: Boolean(process.env.CHATGPT2API_BASE_URL),
     imageApiKey: Boolean(
       process.env.CHATGPT2API_KEY &&
@@ -53,7 +57,11 @@ async function getSetupState() {
   return {
     configured: databaseReady && adminCount > 0,
     adminExists: adminCount > 0,
-    canInitialize: databaseReady && checks.authSecret,
+    canInitialize:
+      databaseReady &&
+      checks.authSecret &&
+      checks.emailApiKey &&
+      checks.emailFrom,
     checks,
   };
 }
@@ -93,6 +101,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (!state.checks.emailApiKey || !state.checks.emailFrom) {
+    return NextResponse.json(
+      { error: "请先配置 Resend API 密钥和已验证的发件人地址" },
+      { status: 503 },
+    );
+  }
+
   try {
     const input = setupSchema.parse(await req.json());
     const result = await auth.api.signUpEmail({
@@ -114,6 +129,7 @@ export async function POST(req: NextRequest) {
         .update(user)
         .set({
           role: "admin",
+          emailVerified: true,
           quota: input.initialQuota,
           updatedAt: new Date(),
         })

@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
-import { Button, Icon, Input, Notification } from "animal-island-ui";
+import { Button, Icon, Input } from "animal-island-ui";
 import { AuthLayout } from "@/components/auth-layout";
+import { notify } from "@/components/app-notifications";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,12 +16,12 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    Notification.destroy("auth-login");
+    notify.destroy("auth-login");
     setLoading(true);
     try {
       const res = await signIn.email({ email, password });
       if (res.error) {
-        Notification.error({
+        notify.error({
           key: "auth-login",
           message: "登录失败",
           description: res.error.message || "请检查邮箱和密码后重试",
@@ -28,7 +29,7 @@ export default function LoginPage() {
         });
         return;
       }
-      Notification.success({
+      notify.success({
         key: "auth-login",
         message: "登录成功",
         description: "正在进入灵感工坊",
@@ -37,7 +38,7 @@ export default function LoginPage() {
       router.push("/generate");
       router.refresh();
     } catch (err: unknown) {
-      Notification.error({
+      notify.error({
         key: "auth-login",
         message: "登录失败",
         description: err instanceof Error ? err.message : "请稍后重试",

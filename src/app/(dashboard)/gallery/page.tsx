@@ -15,11 +15,11 @@ import { useRouter } from "next/navigation";
 import {
   Card,
   Icon,
-  Notification,
   Tag,
   Title,
 } from "animal-island-ui";
 import { AppLoading, AppShell } from "@/components/app-shell";
+import { notify } from "@/components/app-notifications";
 
 interface HistoryItem {
   id: string;
@@ -148,13 +148,13 @@ export default function GalleryPage() {
     if (!selectedItem) return;
     try {
       await navigator.clipboard.writeText(selectedItem.prompt);
-      Notification.success({
+      notify.success({
         key: "gallery-copy-prompt",
         message: "提示词已复制",
         position: "topRight",
       });
     } catch {
-      Notification.error({
+      notify.error({
         key: "gallery-copy-prompt",
         message: "提示词复制失败",
         description: "请手动选择提示词后复制",
@@ -179,7 +179,7 @@ export default function GalleryPage() {
         current.filter((item) => item.id !== selectedItem.id),
       );
       closeLightbox();
-      Notification.success({
+      notify.success({
         key: "gallery-delete",
         message: "作品已删除",
         description: "作品已从你的作品库移除",
@@ -187,7 +187,7 @@ export default function GalleryPage() {
       });
     } catch (error) {
       setDeleting(false);
-      Notification.error({
+      notify.error({
         key: "gallery-delete",
         message: "作品删除失败",
         description: error instanceof Error ? error.message : "请稍后重试",
@@ -211,7 +211,7 @@ export default function GalleryPage() {
         setItems(data.data || []);
       })
       .catch((caught: unknown) => {
-        Notification.error({
+        notify.error({
           key: "gallery-load",
           message: "作品库加载失败",
           description: caught instanceof Error ? caught.message : "请稍后重试",
