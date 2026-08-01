@@ -11,11 +11,16 @@ export async function GET(req: NextRequest) {
   }
 
   const searchParams = new URL(req.url).searchParams;
-  const page = Math.max(1, Number(searchParams.get("page")) || 1);
-  const pageSize = Math.min(
-    100,
-    Math.max(1, Number(searchParams.get("pageSize")) || 50),
-  );
+  const requestedPage = Number(searchParams.get("page"));
+  const requestedPageSize = Number(searchParams.get("pageSize"));
+  const page =
+    Number.isSafeInteger(requestedPage) && requestedPage > 0
+      ? requestedPage
+      : 1;
+  const pageSize =
+    Number.isSafeInteger(requestedPageSize) && requestedPageSize > 0
+      ? Math.min(100, requestedPageSize)
+      : 50;
   const status = searchParams.get("status");
   const userId = searchParams.get("userId");
   const filters: SQL[] = [];

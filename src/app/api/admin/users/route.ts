@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "better-auth/crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-auth";
 import { writeAdminAudit } from "@/lib/admin-audit";
@@ -105,21 +105,58 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const users = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      quota: user.quota,
-      used: user.used,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-    })
-    .from(user)
-    .orderBy(desc(user.createdAt));
+  const searchParams = new URL(req.url).searchParams;
+  const requestedPage = Number(searchParams.get("page"));
+  const requestedPageSize = Number(searchParams.get("pageSize"));
+  const page =
+    Number.isSafeInteger(requestedPage) && requestedPage > 0
+      ? requestedPage
+      : 1;
+  const pageSize =
+    Number.isSafeInteger(requestedPageSize) && requestedPageSize > 0
+      ? Math.min(100, requestedPageSize)
+      : 10;
 
-  return NextResponse.json({ success: true, data: users });
+  const [users, summaryRows] = await Promise.all([
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        quota: user.quota,
+        used: user.used,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+      })
+      .from(user)
+      .orderBy(desc(user.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({
+        total: count(),
+        active: sql<number>`sum(case when ${user.isActive} = 1 then 1 else 0 end)`,
+        totalQuota: sql<number>`coalesce(sum(${user.quota}), 0)`,
+      })
+      .from(user),
+  ]);
+
+  const summary = summaryRows[0];
+  const normalizedSummary = {
+    total: Number(summary?.total ?? 0),
+    active: Number(summary?.active ?? 0),
+    totalQuota: Number(summary?.totalQuota ?? 0),
+  };
+
+  return NextResponse.json({
+    success: true,
+    page,
+    pageSize,
+    total: normalizedSummary.total,
+    summary: normalizedSummary,
+    data: users,
+  });
 }
 
 export async function PATCH(req: NextRequest) {

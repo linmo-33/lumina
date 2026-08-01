@@ -139,7 +139,7 @@ export function AppShell({
 
                       {user.role === "admin" && (
                         <Link
-                          href="/admin"
+                          href="/admin/users"
                           className="lumina-account-menu-item"
                           role="menuitem"
                           onClick={() => setMenuOpen(false)}
