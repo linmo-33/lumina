@@ -5,6 +5,6 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "sqlite",
   dbCredentials: {
-    url: "./data/pixelforge.db",
+    url: "./data/app.db",
   },
 });

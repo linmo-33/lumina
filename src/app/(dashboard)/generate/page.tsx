@@ -1,9 +1,44 @@
 "use client";
 
-import { useState } from "react";
-import { useSession, signOut } from "@/lib/auth-client";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import {
+  Button,
+  Card,
+  Divider,
+  Icon,
+  Loading,
+  Progress,
+  Select,
+  Tag,
+  Title,
+} from "animal-island-ui";
+import { IslandLoading, IslandShell } from "@/components/island-shell";
+
+const modelOptions = [
+  { key: "gpt-image-2", label: "GPT Image 2" },
+  { key: "codex-gpt-image-2", label: "Codex Image 2" },
+];
+
+const sizeOptions = [
+  { key: "1024x1024", label: "正方形 · 1024 × 1024" },
+  { key: "1536x1024", label: "横向 · 1536 × 1024" },
+  { key: "1024x1536", label: "竖向 · 1024 × 1536" },
+  { key: "auto", label: "自动尺寸" },
+];
+
+const qualityOptions = [
+  { key: "auto", label: "自动" },
+  { key: "low", label: "快速" },
+  { key: "medium", label: "标准" },
+  { key: "high", label: "精细" },
+];
+
+const countOptions = [1, 2, 3, 4].map((value) => ({
+  key: String(value),
+  label: `${value} 张图片`,
+}));
 
 export default function GeneratePage() {
   const { data: session, isPending } = useSession();
@@ -18,17 +53,18 @@ export default function GeneratePage() {
   const [results, setResults] = useState<{ id: string; url: string }[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (!isPending && !session) {
+      router.replace("/login");
+    }
+  }, [isPending, session, router]);
+
   if (isPending) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-400">
-        加载中...
-      </div>
-    );
+    return <IslandLoading />;
   }
 
   if (!session) {
-    router.push("/login");
-    return null;
+    return <IslandLoading label="正在前往登录页…" />;
   }
 
   const user = session.user as typeof session.user & {
@@ -55,173 +91,183 @@ export default function GeneratePage() {
       }
       setResults(data.images || []);
       setRemaining(data.remainingQuota);
-    } catch (err: any) {
-      setError(err.message || "网络错误");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "网络错误");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      {/* 顶栏 */}
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/generate" className="font-bold text-lg tracking-tight">
-              PixelForge
-            </Link>
-            <nav className="hidden sm:flex gap-4 text-sm text-zinc-400">
-              <Link href="/generate" className="text-white">
-                生图
-              </Link>
-              <Link href="/gallery" className="hover:text-white transition">
-                图库
-              </Link>
-              {user.role === "admin" && (
-                <Link href="/admin" className="hover:text-white transition">
-                  管理
-                </Link>
-              )}
-            </nav>
+    <IslandShell active="generate" user={user} quota={remaining ?? undefined}>
+      <div className="island-grid">
+        <Card className="island-panel" color="default">
+          <div className="island-panel-heading">
+            <div>
+              <p className="island-kicker">CREATIVE WORKSHOP</p>
+              <Title size="large" color="app-teal">
+                灵感工坊
+              </Title>
+              <p className="island-description">
+                描述你想看到的画面，岛上的创作助手会把它变成图像。
+              </p>
+            </div>
+            <Icon name="icon-diy" size={62} bounce />
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-zinc-400">
-              额度：
-              <span className="text-violet-400 font-medium">
-                {remaining ?? user.quota ?? 0}
+
+          <Divider type="dashed-brown" style={{ marginBottom: 22 }} />
+
+          <form onSubmit={handleGenerate} className="island-form">
+            {error && <div className="island-alert">{error}</div>}
+
+            <div className="island-field">
+              <label className="island-field-label" htmlFor="prompt">
+                画面描述
+              </label>
+              <textarea
+                id="prompt"
+                required
+                rows={5}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="island-textarea"
+                placeholder="例如：雨后的森林小屋，窗户透出暖光，水彩插画风格…"
+              />
+              <span className="island-field-hint">
+                加上光线、构图和艺术风格，通常会得到更丰富的结果。
               </span>
-            </span>
-            <span className="text-zinc-500">{user.name}</span>
-            <button
-              onClick={() => signOut().then(() => router.push("/login"))}
-              className="text-zinc-400 hover:text-white transition"
-            >
-              退出
-            </button>
-          </div>
-        </div>
-      </header>
+            </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-8 grid lg:grid-cols-2 gap-8">
-        {/* 左侧表单 */}
-        <form onSubmit={handleGenerate} className="space-y-5">
-          <h2 className="text-xl font-semibold">文生图</h2>
-
-          {error && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm text-zinc-400 mb-1.5">提示词</label>
-            <textarea
-              required
-              rows={5}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-white placeholder-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none"
-              placeholder="一只漂浮在太空里的猫，赛博朋克风格..."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1.5">模型</label>
-              <select
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-white focus:border-violet-500 focus:outline-none"
-              >
-                <option value="gpt-image-2">gpt-image-2</option>
-                <option value="codex-gpt-image-2">codex-gpt-image-2</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1.5">尺寸</label>
-              <select
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-white focus:border-violet-500 focus:outline-none"
-              >
-                <option value="1024x1024">1024×1024</option>
-                <option value="1536x1024">1536×1024</option>
-                <option value="1024x1536">1024×1536</option>
-                <option value="auto">auto</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1.5">质量</label>
-              <select
-                value={quality}
-                onChange={(e) => setQuality(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-white focus:border-violet-500 focus:outline-none"
-              >
-                <option value="auto">auto</option>
-                <option value="low">low</option>
-                <option value="medium">medium</option>
-                <option value="high">high</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1.5">数量</label>
-              <select
-                value={n}
-                onChange={(e) => setN(Number(e.target.value))}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-white focus:border-violet-500 focus:outline-none"
-              >
-                {[1, 2, 3, 4].map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !prompt.trim()}
-            className="w-full rounded-lg bg-violet-600 px-4 py-3 text-sm font-semibold hover:bg-violet-500 disabled:opacity-50 transition"
-          >
-            {loading ? "生成中，请稍候..." : `生成（消耗 ${n} 额度）`}
-          </button>
-        </form>
-
-        {/* 右侧结果 */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">生成结果</h2>
-          {results.length === 0 && !loading && (
-            <div className="rounded-xl border border-dashed border-zinc-700 h-64 flex items-center justify-center text-zinc-500 text-sm">
-              生成的图片会显示在这里
-            </div>
-          )}
-          {loading && (
-            <div className="rounded-xl border border-zinc-700 h-64 flex items-center justify-center text-zinc-400 text-sm animate-pulse">
-              正在请求 chatgpt2api...
-            </div>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {results.map((img) => (
-              <a
-                key={img.id}
-                href={img.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-xl overflow-hidden border border-zinc-800 hover:border-violet-500/50 transition"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={img.url}
-                  alt="generated"
-                  className="w-full aspect-square object-cover bg-zinc-900"
+            <div className="island-options-grid">
+              <div className="island-field island-select-wrap">
+                <label className="island-field-label" id="model-label">
+                  模型
+                </label>
+                <Select
+                  value={model}
+                  onChange={setModel}
+                  options={modelOptions}
+                  aria-labelledby="model-label"
                 />
-              </a>
-            ))}
+              </div>
+              <div className="island-field island-select-wrap">
+                <label className="island-field-label" id="size-label">
+                  画布
+                </label>
+                <Select
+                  value={size}
+                  onChange={setSize}
+                  options={sizeOptions}
+                  aria-labelledby="size-label"
+                />
+              </div>
+              <div className="island-field island-select-wrap">
+                <label className="island-field-label" id="quality-label">
+                  质量
+                </label>
+                <Select
+                  value={quality}
+                  onChange={setQuality}
+                  options={qualityOptions}
+                  aria-labelledby="quality-label"
+                />
+              </div>
+              <div className="island-field island-select-wrap">
+                <label className="island-field-label" id="count-label">
+                  数量
+                </label>
+                <Select
+                  value={String(n)}
+                  onChange={(value) => setN(Number(value))}
+                  options={countOptions}
+                  aria-labelledby="count-label"
+                />
+              </div>
+            </div>
+
+            <Button
+              htmlType="submit"
+              type="primary"
+              size="large"
+              block
+              loading={loading}
+              disabled={loading || !prompt.trim()}
+              icon={<Icon name="icon-design" size={22} />}
+            >
+              {loading ? "正在收集灵感…" : `开始创作 · 消耗 ${n} 额度`}
+            </Button>
+          </form>
+        </Card>
+
+        <Card className="island-panel" color="default" type="dashed">
+          <div className="island-panel-heading">
+            <div>
+              <p className="island-kicker">LATEST CREATION</p>
+              <Title color="app-yellow">本次作品</Title>
+            </div>
+            {results.length > 0 && (
+              <Tag color="app-teal" variant="soft">
+                {results.length} 张已完成
+              </Tag>
+            )}
           </div>
-        </div>
-      </main>
-    </div>
+
+          {loading && (
+            <div className="island-result-empty">
+              <div>
+                <Loading active />
+                <p className="island-empty-title">正在绘制你的灵感</p>
+                <p className="island-empty-copy">
+                  生成过程可能需要一点时间，请留在这座小岛上。
+                </p>
+                <Progress
+                  percent={72}
+                  showInfo={false}
+                  size="small"
+                  aria-label="图片生成中"
+                  style={{ marginTop: 18 }}
+                />
+              </div>
+            </div>
+          )}
+
+          {results.length === 0 && !loading && (
+            <div className="island-result-empty">
+              <div>
+                <span className="island-empty-icon">
+                  <Icon name="icon-camera" size={54} bounce />
+                </span>
+                <p className="island-empty-title">画布还是空白的</p>
+                <p className="island-empty-copy">
+                  在左侧写下第一个创意，完成后的图片会在这里出现。
+                </p>
+              </div>
+            </div>
+          )}
+
+          {results.length > 0 && !loading && (
+            <div className="island-results-grid">
+              {results.map((img) => (
+                <Card key={img.id} className="island-image-card" hoverable>
+                  <a
+                    href={img.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="island-image-link"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.url}
+                      alt="AI 生成作品"
+                      className="island-image"
+                    />
+                  </a>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+    </IslandShell>
   );
 }

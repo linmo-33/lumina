@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession, signOut } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Card, Icon, Loading, Tag, Title } from "animal-island-ui";
+import { IslandLoading, IslandShell } from "@/components/island-shell";
 
 interface HistoryItem {
   id: string;
@@ -23,6 +25,12 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isPending && !session) {
+      router.replace("/login");
+    }
+  }, [isPending, session, router]);
+
+  useEffect(() => {
     if (!session) return;
     fetch("/api/images/history")
       .then((r) => r.json())
@@ -33,16 +41,11 @@ export default function GalleryPage() {
   }, [session]);
 
   if (isPending) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-400">
-        加载中...
-      </div>
-    );
+    return <IslandLoading label="正在翻开你的图鉴…" />;
   }
 
   if (!session) {
-    router.push("/login");
-    return null;
+    return <IslandLoading label="正在前往登录页…" />;
   }
 
   const user = session.user as typeof session.user & {
@@ -51,87 +54,80 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/generate" className="font-bold text-lg tracking-tight">
-              PixelForge
-            </Link>
-            <nav className="hidden sm:flex gap-4 text-sm text-zinc-400">
-              <Link href="/generate" className="hover:text-white transition">
-                生图
-              </Link>
-              <Link href="/gallery" className="text-white">
-                图库
-              </Link>
-              {user.role === "admin" && (
-                <Link href="/admin" className="hover:text-white transition">
-                  管理
-                </Link>
-              )}
-            </nav>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-zinc-400">
-              额度：
-              <span className="text-violet-400 font-medium">{user.quota ?? 0}</span>
-            </span>
-            <button
-              onClick={() => signOut().then(() => router.push("/login"))}
-              className="text-zinc-400 hover:text-white transition"
-            >
-              退出
-            </button>
-          </div>
+    <IslandShell active="gallery" user={user}>
+      <div className="island-section-header">
+        <div>
+          <p className="island-kicker">YOUR COLLECTION</p>
+          <Title size="large" color="app-yellow">
+            我的灵感图鉴
+          </Title>
+          <p className="island-section-copy">
+            每一次生成都会被妥善收藏。点击图片，可以查看完整尺寸的作品。
+          </p>
         </div>
-      </header>
+        <Tag color="app-teal" variant="solid" size="large">
+          共 {items.length} 件作品
+        </Tag>
+      </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h2 className="text-xl font-semibold mb-6">我的图库</h2>
-
-        {loading && (
-          <p className="text-zinc-500 text-sm">加载中...</p>
-        )}
-
-        {!loading && items.length === 0 && (
-          <div className="rounded-xl border border-dashed border-zinc-700 h-48 flex items-center justify-center text-zinc-500 text-sm">
-            还没有生成过图片，去{" "}
-            <Link href="/generate" className="text-violet-400 mx-1 hover:underline">
-              生图
-            </Link>{" "}
-            试试吧
+      {loading && (
+        <Card className="island-panel island-result-empty">
+          <div>
+            <Loading active />
+            <p className="island-empty-title">正在整理图鉴…</p>
           </div>
-        )}
+        </Card>
+      )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      {!loading && items.length === 0 && (
+        <Card className="island-panel island-result-empty" type="dashed">
+          <div>
+            <span className="island-empty-icon">
+              <Icon name="icon-critterpedia" size={54} bounce />
+            </span>
+            <p className="island-empty-title">图鉴里还没有作品</p>
+            <p className="island-empty-copy">
+              去{" "}
+              <Link href="/generate" className="island-inline-link">
+                灵感工坊
+              </Link>{" "}
+              完成第一幅创作吧。
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {!loading && items.length > 0 && (
+        <div className="island-gallery-grid">
           {items.map((item) => (
-            <div
-              key={item.id}
-              className="group rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900"
-            >
+            <Card key={item.id} className="island-image-card" hoverable>
               {item.imageUrl ? (
-                <a href={item.imageUrl} target="_blank" rel="noreferrer">
+                <a
+                  href={item.imageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="island-image-link"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={item.imageUrl}
                     alt={item.prompt}
-                    className="w-full aspect-square object-cover group-hover:opacity-90 transition"
+                    className="island-image"
                   />
                 </a>
               ) : (
-                <div className="w-full aspect-square bg-zinc-800" />
+                <div className="island-image" />
               )}
-              <div className="p-2.5">
-                <p className="text-xs text-zinc-400 line-clamp-2">{item.prompt}</p>
-                <p className="text-[10px] text-zinc-600 mt-1">
-                  {item.model} · {item.size}
+              <div className="island-image-meta">
+                <p className="island-image-prompt">{item.prompt}</p>
+                <p className="island-image-detail">
+                  {item.model} · {item.size || "自动尺寸"}
                 </p>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
-      </main>
-    </div>
+      )}
+    </IslandShell>
   );
 }

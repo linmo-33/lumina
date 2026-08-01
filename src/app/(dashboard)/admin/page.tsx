@@ -1,9 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession, signOut } from "@/lib/auth-client";
-import Link from "next/link";
+import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import {
+  Button,
+  Card,
+  Icon,
+  Table,
+  Tag,
+  Title,
+  type TableColumn,
+} from "animal-island-ui";
+import { IslandLoading, IslandShell } from "@/components/island-shell";
 
 interface UserRow {
   id: string;
@@ -24,17 +33,21 @@ export default function AdminPage() {
   const [msg, setMsg] = useState("");
 
   const user = session?.user as
-    | (typeof session.user & { role?: string; quota?: number })
+    | (NonNullable<typeof session>["user"] & { role?: string; quota?: number })
     | undefined;
 
   useEffect(() => {
-    if (!session) return;
+    if (isPending) return;
+    if (!session) {
+      router.replace("/login");
+      return;
+    }
     if (user?.role !== "admin") {
-      router.push("/generate");
+      router.replace("/generate");
       return;
     }
     loadUsers();
-  }, [session]);
+  }, [isPending, session, user?.role, router]);
 
   async function loadUsers() {
     setLoading(true);
@@ -78,118 +91,125 @@ export default function AdminPage() {
     loadUsers();
   }
 
-  if (isPending || loading) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-400">
-        加载中...
-      </div>
-    );
+  if (isPending) {
+    return <IslandLoading label="正在联系服务处…" />;
   }
 
-  if (!session || user?.role !== "admin") return null;
+  if (!session || user?.role !== "admin") {
+    return <IslandLoading label="正在确认访问权限…" />;
+  }
+
+  const columns: TableColumn[] = [
+    {
+      title: "岛民",
+      dataIndex: "name",
+      width: 230,
+      render: (_value, record) => (
+        <div>
+          <div className="island-table-user">{String(record.name || "未命名")}</div>
+          <div className="island-table-email">{String(record.email || "")}</div>
+        </div>
+      ),
+    },
+    {
+      title: "身份",
+      dataIndex: "role",
+      width: 110,
+      render: (value) => (
+        <Tag
+          size="small"
+          variant="soft"
+          color={value === "admin" ? "app-yellow" : "app-teal"}
+        >
+          {value === "admin" ? "管理员" : "岛民"}
+        </Tag>
+      ),
+    },
+    {
+      title: "剩余额度",
+      dataIndex: "quota",
+      width: 110,
+      align: "center",
+      render: (value) => <strong>{Number(value ?? 0)}</strong>,
+    },
+    {
+      title: "已使用",
+      dataIndex: "used",
+      width: 90,
+      align: "center",
+    },
+    {
+      title: "状态",
+      dataIndex: "isActive",
+      width: 100,
+      render: (value) => (
+        <Tag
+          size="small"
+          variant="solid"
+          color={value ? "app-green" : "app-red"}
+        >
+          {value ? "正常" : "已停用"}
+        </Tag>
+      ),
+    },
+    {
+      title: "服务操作",
+      width: 260,
+      render: (_value, record) => {
+        const recordId = String(record.id);
+        const isActive = Boolean(record.isActive);
+        return (
+          <div className="island-table-actions">
+            <Button size="small" onClick={() => adjustQuota(recordId, 10)}>
+              +10
+            </Button>
+            <Button size="small" onClick={() => adjustQuota(recordId, 50)}>
+              +50
+            </Button>
+            <Button
+              size="small"
+              danger={isActive}
+              onClick={() => toggleActive(recordId, !isActive)}
+            >
+              {isActive ? "停用" : "启用"}
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
+
+  const tableData: Record<string, unknown>[] = users.map((entry) => ({
+    ...entry,
+  }));
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/generate" className="font-bold text-lg tracking-tight">
-              PixelForge
-            </Link>
-            <nav className="hidden sm:flex gap-4 text-sm text-zinc-400">
-              <Link href="/generate" className="hover:text-white transition">
-                生图
-              </Link>
-              <Link href="/gallery" className="hover:text-white transition">
-                图库
-              </Link>
-              <Link href="/admin" className="text-white">
-                管理
-              </Link>
-            </nav>
-          </div>
-          <button
-            onClick={() => signOut().then(() => router.push("/login"))}
-            className="text-sm text-zinc-400 hover:text-white transition"
-          >
-            退出
-          </button>
+    <IslandShell active="admin" user={user}>
+      <div className="island-section-header">
+        <div>
+          <p className="island-kicker">RESIDENT SERVICES</p>
+          <Title size="large" color="app-orange">
+            岛民服务处
+          </Title>
+          <p className="island-section-copy">
+            管理岛民状态与创作额度。额度调整会立即生效。
+          </p>
         </div>
-      </header>
+        <Icon name="icon-miles" size={72} bounce />
+      </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h2 className="text-xl font-semibold mb-2">用户管理</h2>
-        {msg && (
-          <p className="text-sm text-violet-400 mb-4">{msg}</p>
-        )}
+      {msg && <div className="island-alert island-success">{msg}</div>}
 
-        <div className="overflow-x-auto rounded-xl border border-zinc-800">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-900 text-zinc-400 text-left">
-              <tr>
-                <th className="px-4 py-3 font-medium">用户</th>
-                <th className="px-4 py-3 font-medium">角色</th>
-                <th className="px-4 py-3 font-medium">额度</th>
-                <th className="px-4 py-3 font-medium">已用</th>
-                <th className="px-4 py-3 font-medium">状态</th>
-                <th className="px-4 py-3 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-zinc-900/50">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{u.name}</div>
-                    <div className="text-xs text-zinc-500">{u.email}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={
-                        u.role === "admin"
-                          ? "text-amber-400"
-                          : "text-zinc-400"
-                      }
-                    >
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-violet-400 font-medium">
-                    {u.quota}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400">{u.used}</td>
-                  <td className="px-4 py-3">
-                    {u.isActive ? (
-                      <span className="text-emerald-400">正常</span>
-                    ) : (
-                      <span className="text-red-400">禁用</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 space-x-2">
-                    <button
-                      onClick={() => adjustQuota(u.id, 10)}
-                      className="text-xs text-violet-400 hover:underline"
-                    >
-                      +10
-                    </button>
-                    <button
-                      onClick={() => adjustQuota(u.id, 50)}
-                      className="text-xs text-violet-400 hover:underline"
-                    >
-                      +50
-                    </button>
-                    <button
-                      onClick={() => toggleActive(u.id, !u.isActive)}
-                      className="text-xs text-zinc-400 hover:underline"
-                    >
-                      {u.isActive ? "禁用" : "启用"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </main>
-    </div>
+      <Card className="island-table-panel" style={{ marginTop: msg ? 18 : 0 }}>
+        <Table
+          columns={columns}
+          dataSource={tableData}
+          rowKey="id"
+          loading={loading}
+          emptyText="还没有岛民登记"
+          scroll={{ x: 960 }}
+        />
+      </Card>
+    </IslandShell>
   );
 }

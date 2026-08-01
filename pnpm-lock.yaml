@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      animal-island-ui:
+        specifier: ^1.4.0
+        version: 1.4.0(classnames@2.5.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       better-auth:
         specifier: ^1.2.8
         version: 1.6.25(better-sqlite3@11.10.0)(drizzle-kit@0.31.10)(drizzle-orm@0.44.7(@types/better-sqlite3@7.6.13)(better-sqlite3@11.10.0)(kysely@0.29.4))(next@16.2.12(@babel/core@7.29.7)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1311,6 +1314,14 @@ packages:
   ajv@6.15.0:
     resolution: {integrity: sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw==}
 
+  animal-island-ui@1.4.0:
+    resolution: {integrity: sha512-n2ve66HUfI95AHq5fpRxc9ZqByj4f/UX0XdaLtTwYPrSmEmRyePK6uo666xiXWjtloi5ucmy/dNMhbGY2XdNtw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      classnames: ^2.5.1
+      react: '>=17.0.0'
+      react-dom: '>=17.0.0'
+
   ansi-styles@4.3.0:
     resolution: {integrity: sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==}
     engines: {node: '>=8'}
@@ -1517,6 +1528,9 @@ packages:
 
   chownr@1.1.4:
     resolution: {integrity: sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==}
+
+  classnames@2.5.1:
+    resolution: {integrity: sha512-saHYOzhIQs6wy2sVxTM6bUDsQO4F50V9RQ22qBpEdCW+I+/Wmke2HOl6lS6dTpdxVhb88/I6+Hs+438c3lfUow==}
 
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
@@ -3913,6 +3927,12 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
+  animal-island-ui@1.4.0(classnames@2.5.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      classnames: 2.5.1
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+
   ansi-styles@4.3.0:
     dependencies:
       color-convert: 2.0.1
@@ -4119,6 +4139,8 @@ snapshots:
       supports-color: 7.2.0
 
   chownr@1.1.4: {}
+
+  classnames@2.5.1: {}
 
   client-only@0.0.1: {}
 

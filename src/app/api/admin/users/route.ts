@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { user, quotaLogs } from "@/lib/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, type SQL } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 async function requireAdmin() {
@@ -61,7 +61,11 @@ export async function PATCH(req: NextRequest) {
   }
 
   await db.transaction(async (tx) => {
-    const updates: Partial<typeof user.$inferInsert> = {
+    const updates: {
+      updatedAt: Date;
+      quota?: number | SQL<unknown>;
+      isActive?: boolean;
+    } = {
       updatedAt: new Date(),
     };
 
