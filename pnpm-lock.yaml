@@ -4,18 +4,13 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  animal-island-ui@1.4.0:
-    hash: 4ca85cbf0542577e4e6c24078436bb73151229093c8cd9bde18cfa4ec606d25e
-    path: patches/animal-island-ui@1.4.0.patch
-
 importers:
 
   .:
     dependencies:
       animal-island-ui:
         specifier: ^1.4.0
-        version: 1.4.0(patch_hash=4ca85cbf0542577e4e6c24078436bb73151229093c8cd9bde18cfa4ec606d25e)(classnames@2.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.4.0(classnames@2.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       better-auth:
         specifier: ^1.2.8
         version: 1.6.25(better-sqlite3@11.10.0)(drizzle-kit@0.31.10)(drizzle-orm@0.44.7(@types/better-sqlite3@7.6.13)(better-sqlite3@11.10.0)(kysely@0.29.4))(next@16.2.12(@babel/core@7.29.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -3964,7 +3959,7 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
-  animal-island-ui@1.4.0(patch_hash=4ca85cbf0542577e4e6c24078436bb73151229093c8cd9bde18cfa4ec606d25e)(classnames@2.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  animal-island-ui@1.4.0(classnames@2.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       classnames: 2.5.1
       react: 18.3.1

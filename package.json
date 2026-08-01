@@ -2,6 +2,7 @@
   "name": "lumina",
   "version": "0.1.1",
   "private": true,
+  "packageManager": "pnpm@10.18.2",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -37,9 +38,6 @@
     "typescript": "^5"
   },
   "pnpm": {
-    "patchedDependencies": {
-      "animal-island-ui@1.4.0": "patches/animal-island-ui@1.4.0.patch"
-    },
     "onlyBuiltDependencies": [
       "better-sqlite3"
     ]
