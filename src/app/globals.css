@@ -1106,10 +1106,37 @@ select {
   border-top: 1px solid rgba(85, 76, 64, 0.12);
 }
 
-.lumina-footer span:first-child {
+.lumina-footer-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
   color: var(--lumina-brown);
   font-size: 14px;
   font-weight: 900;
+}
+
+.lumina-footer-version {
+  color: var(--lumina-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.lumina-footer-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lumina-footer-meta a {
+  color: var(--lumina-teal-dark);
+  text-decoration: none;
+  transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+
+.lumina-footer-meta a:hover {
+  color: var(--lumina-brown);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .admin-console {
@@ -2337,6 +2364,11 @@ select {
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;
+  }
+
+  .lumina-footer-meta {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .setup-shell {

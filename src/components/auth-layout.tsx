@@ -7,6 +7,7 @@ import {
   Tag,
   Title,
 } from "animal-island-ui";
+import { AppFooter } from "@/components/app-footer";
 
 interface AuthLayoutProps {
   mode: "login" | "register";
@@ -53,10 +54,7 @@ export function AuthLayout({ mode, children }: AuthLayoutProps) {
               {children}
             </Card>
           </main>
-          <footer className="lumina-footer">
-            <span>Lumina</span>
-            <span>让灵感成为画面</span>
-          </footer>
+          <AppFooter />
         </div>
       </div>
     </Cursor>

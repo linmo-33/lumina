@@ -14,6 +14,7 @@ import {
   Tag,
   Title,
 } from "animal-island-ui";
+import { AppFooter } from "@/components/app-footer";
 import { AppLoading } from "@/components/app-shell";
 
 interface SetupStatus {
@@ -455,10 +456,7 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
               )}
             </Card>
           </main>
-          <footer className="lumina-footer">
-            <span>Lumina</span>
-            <span>让灵感成为画面</span>
-          </footer>
+          <AppFooter />
         </div>
       </div>
     </Cursor>

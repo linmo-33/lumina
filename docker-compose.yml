@@ -1,0 +1,12 @@
+services:
+  lumina:
+    image: ghcr.io/linmo-33/lumina:latest
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
