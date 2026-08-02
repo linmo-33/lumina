@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
-import { Button, Icon, Input } from "animal-island-ui";
+import { Button, Input } from "animal-island-ui";
 import { AuthLayout } from "@/components/auth-layout";
 import { notify } from "@/components/app-notifications";
 
@@ -65,7 +65,6 @@ export default function LoginPage() {
               size="large"
               shadow
               allowClear
-              prefix={<Icon name="icon-chat" size={20} />}
               placeholder="you@example.com"
             />
           </div>
@@ -82,7 +81,6 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               size="large"
               shadow
-              prefix={<Icon name="icon-miles" size={20} />}
               placeholder="••••••••"
             />
           </div>

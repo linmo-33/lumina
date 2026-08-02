@@ -25,9 +25,6 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
   },
-  emailVerification: {
-    autoSignInAfterVerification: true,
-  },
   user: {
     additionalFields: {
       role: {
@@ -94,6 +91,7 @@ export const auth = betterAuth({
   },
   plugins: [
     emailOTP({
+      disableSignUp: true,
       expiresIn: VERIFICATION_CODE_EXPIRES_IN_SECONDS,
       allowedAttempts: 5,
       storeOTP: "hashed",
@@ -102,6 +100,9 @@ export const auth = betterAuth({
         max: 3,
       },
       async sendVerificationOTP({ email, otp, type }) {
+        if (type !== "email-verification") {
+          throw new Error("当前仅支持注册邮箱验证");
+        }
         await sendVerificationCodeEmail({ email, code: otp, type });
       },
     }),

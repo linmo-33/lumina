@@ -42,7 +42,6 @@ export function buildVerificationCodeEmail({
   expiresInMinutes,
 }: VerificationCodeEmailInput) {
   const copy = purposeCopy[type];
-  const spacedCode = code.split("").join(" ");
 
   return {
     subject: copy.subject,
@@ -53,6 +52,12 @@ export function buildVerificationCodeEmail({
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${copy.subject}</title>
+    <style>
+      @media only screen and (max-width: 480px) {
+        .lumina-email-content { padding-left: 20px !important; padding-right: 20px !important; }
+        .lumina-email-code { font-size: 26px !important; letter-spacing: .14em !important; padding: 18px 10px !important; }
+      }
+    </style>
   </head>
   <body style="margin:0;background:#f4f1e8;color:#554c40;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${copy.description} 验证码 ${code}</div>
@@ -64,7 +69,7 @@ export function buildVerificationCodeEmail({
               <td style="height:8px;background:#20b8ad;"></td>
             </tr>
             <tr>
-              <td style="padding:36px 40px 16px;">
+              <td class="lumina-email-content" style="padding:36px 40px 16px;">
                 <div style="font-size:24px;font-weight:900;letter-spacing:-.02em;color:#554c40;">✦ Lumina</div>
                 <div style="display:inline-block;margin-top:22px;padding:7px 13px;border-radius:999px;background:#fff0b8;color:#806323;font-size:12px;font-weight:800;letter-spacing:.12em;">${copy.eyebrow}</div>
                 <h1 style="margin:20px 0 10px;font-size:26px;line-height:1.35;color:#554c40;">${copy.subject}</h1>
@@ -72,12 +77,12 @@ export function buildVerificationCodeEmail({
               </td>
             </tr>
             <tr>
-              <td style="padding:12px 40px 18px;">
-                <div style="padding:22px 16px;border:2px dashed #b8aa91;border-radius:22px;background:#f7f3e8;color:#148f87;font-size:34px;font-weight:900;letter-spacing:.2em;text-align:center;">${spacedCode}</div>
+              <td class="lumina-email-content" style="padding:12px 40px 18px;">
+                <div class="lumina-email-code" style="padding:22px 12px;border:2px dashed #b8aa91;border-radius:22px;background:#f7f3e8;color:#148f87;font-size:32px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:.18em;line-height:1.2;text-align:center;white-space:nowrap;word-break:keep-all;">${code}</div>
               </td>
             </tr>
             <tr>
-              <td style="padding:4px 40px 38px;">
+              <td class="lumina-email-content" style="padding:4px 40px 38px;">
                 <p style="margin:0;color:#8b8274;font-size:13px;line-height:1.75;">验证码将在 <strong style="color:#554c40;">${expiresInMinutes} 分钟</strong>后失效，请勿转发给他人。</p>
                 <p style="margin:10px 0 0;color:#a49a8b;font-size:12px;line-height:1.7;">如果不是你本人操作，可以放心忽略这封邮件。</p>
               </td>

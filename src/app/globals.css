@@ -519,15 +519,57 @@ select {
   line-height: 1.6;
 }
 
-.lumina-results-grid,
-.lumina-gallery-grid {
+.lumina-results-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
+.lumina-results-grid {
+  align-items: start;
+}
+
+.lumina-results-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lumina-results-grid .lumina-image {
+  height: auto;
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+
+.lumina-results-grid.is-single .lumina-image-link {
+  display: flex;
+  min-height: 280px;
+  align-items: center;
+  justify-content: center;
+  background: #eee7d8;
+}
+
+.lumina-results-grid.is-single .lumina-image {
+  width: auto;
+  max-width: 100%;
+  max-height: min(72vh, 760px);
+}
+
 .lumina-gallery-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-count: 4;
+  column-gap: 18px;
+}
+
+.lumina-gallery-grid > .lumina-image-card {
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 18px;
+  break-inside: avoid;
+  vertical-align: top;
+}
+
+.lumina-gallery-grid img.lumina-image {
+  height: auto;
+  aspect-ratio: auto;
+  object-fit: contain;
 }
 
 .lumina-image-card {
@@ -995,11 +1037,28 @@ select {
   white-space: nowrap;
 }
 
+.lumina-verification-code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
 .lumina-verification-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+@media (max-width: 420px) {
+  .lumina-verification-code-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lumina-verification-code-row > button {
+    width: 100%;
+  }
 }
 
 .lumina-auth-footer {
@@ -2266,7 +2325,7 @@ select {
   }
 
   .lumina-gallery-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-count: 3;
   }
 
   .setup-check-list {
@@ -2357,9 +2416,69 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .lumina-select-wrap,
+  .admin-page-size {
+    position: relative;
+  }
+
+  .lumina-select-wrap:focus-within,
+  .admin-page-size:focus-within {
+    z-index: 120;
+  }
+
+  .lumina-select-wrap > div > [role="combobox"] {
+    min-height: 44px;
+  }
+
+  .lumina-select-wrap > div > [role="listbox"] {
+    box-sizing: border-box;
+    top: calc(100% + 6px) !important;
+    right: 0 !important;
+    bottom: auto !important;
+    left: 0 !important;
+    width: 100%;
+    max-height: min(44vh, 320px);
+    margin: 0 !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 18px;
+    transform: none !important;
+    touch-action: manipulation;
+  }
+
+  .lumina-select-wrap > div > [role="listbox"] > [role="option"] {
+    min-height: 44px;
+    justify-content: flex-start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-page-size > div > [role="listbox"] {
+    top: auto !important;
+    right: 0 !important;
+    bottom: calc(100% + 6px) !important;
+    left: auto !important;
+    min-width: 140px;
+    max-height: min(44vh, 320px);
+    margin: 0 !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 18px;
+    transform: none !important;
+    touch-action: manipulation;
+  }
+
+  .admin-page-size > div > [role="listbox"] > [role="option"] {
+    min-height: 44px;
+  }
+
   .lumina-gallery-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    column-count: 2;
+    column-gap: 12px;
+  }
+
+  .lumina-gallery-grid > .lumina-image-card {
+    margin-bottom: 12px;
   }
 
   .lumina-lightbox-toolbar {

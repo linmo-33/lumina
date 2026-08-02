@@ -373,7 +373,9 @@ export default function GeneratePage() {
           )}
 
           {results.length > 0 && !loading && (
-            <div className="lumina-results-grid">
+            <div
+              className={`lumina-results-grid${results.length === 1 ? " is-single" : ""}`}
+            >
               {results.map((img) => (
                 <Card key={img.id} className="lumina-image-card" hoverable>
                   <a

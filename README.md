@@ -50,6 +50,11 @@ Lumina 不直接提供图像模型服务。部署前需要准备一个可访问�
 ```bash
 git clone https://github.com/linmo-33/lumina.git
 cd lumina
+
+# 创建目录
+mkdir -p data uploads
+sudo chown -R 1001:1001 data uploads
+sudo chmod 750 data uploads
 ```
 
 ### 2. 配置环境变量
