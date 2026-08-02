@@ -16,6 +16,11 @@ import {
 import { AppFooter } from "@/components/app-footer";
 import { AppLoading } from "@/components/app-shell";
 import { notify } from "@/components/app-notifications";
+import {
+  isIntegerInRange,
+  parseNumericInput,
+  type NumericInputValue,
+} from "@/lib/numeric-input";
 
 interface SetupStatus {
   configured: boolean;
@@ -36,7 +41,7 @@ const checkItems = [
   {
     key: "database" as const,
     label: "SQLite 数据库",
-    description: "用户、额度和图片记录的数据表",
+    description: "用户、灵点和图片记录的数据表",
     required: true,
     icon: "icon-camera" as const,
   },
@@ -96,7 +101,7 @@ export default function SetupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [initialQuota, setInitialQuota] = useState(100);
+  const [initialQuota, setInitialQuota] = useState<NumericInputValue>(100);
   const [loading, setLoading] = useState(false);
   const [statusLoaded, setStatusLoaded] = useState(false);
 
@@ -151,6 +156,17 @@ export default function SetupPage() {
   async function handleSetup(event: React.FormEvent) {
     event.preventDefault();
     notify.destroy("setup-action");
+
+    if (!isIntegerInRange(initialQuota, 1, 100000)) {
+      notify.error({
+        key: "setup-action",
+        message: "请填写初始创作灵点",
+        description: "请输入 1～100000 之间的整数",
+        position: "topRight",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -348,7 +364,7 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                   </div>
 
                   <p className="lumina-description">
-                    该账号拥有用户管理和额度调整权限。初始化完成后，向导将自动锁定。
+                    该账号拥有用户管理和灵点调整权限。初始化完成后，向导将自动锁定。
                   </p>
 
                   <form onSubmit={handleSetup} className="lumina-form setup-form">
@@ -373,7 +389,7 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
 
                       <div className="lumina-field">
                         <label className="lumina-field-label" htmlFor="setup-quota">
-                          初始创作额度
+                          初始创作灵点
                         </label>
                         <Input
                           id="setup-quota"
@@ -383,7 +399,7 @@ CHATGPT2API_KEY=你的服务密钥`}</pre>
                           max={100000}
                           value={initialQuota}
                           onChange={(event) =>
-                            setInitialQuota(Number(event.target.value))
+                            setInitialQuota(parseNumericInput(event.target.value))
                           }
                           prefix={<Icon name="icon-design" size={20} />}
                           size="large"

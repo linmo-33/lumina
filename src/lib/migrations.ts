@@ -172,6 +172,58 @@ const migrations: Migration[] = [
         AND value = '4';
     `,
   },
+  {
+    id: 4,
+    name: "reward_center_and_lottery",
+    sql: `
+      CREATE TABLE IF NOT EXISTS daily_rewards (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        reward_date TEXT NOT NULL,
+        reward INTEGER NOT NULL,
+        minimum_snapshot INTEGER NOT NULL,
+        maximum_snapshot INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS daily_rewards_user_date_unique
+        ON daily_rewards (user_id, reward_date);
+
+      CREATE INDEX IF NOT EXISTS daily_rewards_created_at_index
+        ON daily_rewards (created_at);
+
+      CREATE TABLE IF NOT EXISTS lottery_draws (
+        id TEXT PRIMARY KEY NOT NULL,
+        request_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        cost INTEGER NOT NULL,
+        prize_id TEXT NOT NULL,
+        prize_name_snapshot TEXT NOT NULL,
+        icon_key_snapshot TEXT,
+        reel_icons_snapshot TEXT NOT NULL,
+        multiplier_snapshot INTEGER NOT NULL,
+        reward INTEGER NOT NULL,
+        balance_after INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS lottery_draws_request_id_unique
+        ON lottery_draws (request_id);
+
+      CREATE INDEX IF NOT EXISTS lottery_draws_user_id_index
+        ON lottery_draws (user_id);
+
+      CREATE INDEX IF NOT EXISTS lottery_draws_created_at_index
+        ON lottery_draws (created_at);
+
+      INSERT OR IGNORE INTO system_settings (key, value, updated_by, updated_at)
+        VALUES
+          ('dailyRewardPolicy', '{"enabled":true,"minimum":1,"maximum":3}', NULL, unixepoch() * 1000),
+          ('lotteryPolicy', '{"enabled":true,"minimumBet":1,"maximumBet":100,"prizes":[{"id":"none","name":"未中奖","iconKey":null,"weight":55,"multiplier":0,"enabled":true},{"id":"return","name":"灵点返还","iconKey":"item-020","weight":28,"multiplier":1,"enabled":true},{"id":"flash","name":"灵光闪现","iconKey":"item-200","weight":12,"multiplier":2,"enabled":true},{"id":"bloom","name":"灵感绽放","iconKey":"item-371","weight":4,"multiplier":3,"enabled":true},{"id":"miracle","name":"灵感奇迹","iconKey":"item-476","weight":1,"multiplier":10,"enabled":true}]}', NULL, unixepoch() * 1000);
+    `,
+  },
 ];
 
 export function runDatabaseMigrations(sqlite: Database.Database) {

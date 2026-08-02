@@ -87,6 +87,7 @@ export default function GalleryPage() {
   const [deleting, setDeleting] = useState(false);
   const lightboxRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const zoomCenterRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -134,6 +135,26 @@ export default function GalleryPage() {
     rememberZoomCenter();
     setZoom(1);
   }, [rememberZoomCenter]);
+
+  const updateGalleryLayout = useCallback(() => {
+    const gallery = galleryRef.current;
+    if (!gallery || items.length <= 4) return;
+
+    const styles = window.getComputedStyle(gallery);
+    const rowHeight = Number.parseFloat(styles.gridAutoRows);
+    const rowGap = Number.parseFloat(styles.rowGap);
+    if (!Number.isFinite(rowHeight) || !Number.isFinite(rowGap)) return;
+
+    gallery
+      .querySelectorAll<HTMLElement>(":scope > .lumina-image-card")
+      .forEach((card) => {
+        const span = Math.max(
+          1,
+          Math.ceil((card.getBoundingClientRect().height + rowGap) / (rowHeight + rowGap)),
+        );
+        card.style.gridRowEnd = `span ${span}`;
+      });
+  }, [items.length]);
 
   function openLightbox(item: HistoryItem) {
     setSelectedItem(item);
@@ -220,6 +241,16 @@ export default function GalleryPage() {
       })
       .finally(() => setLoading(false));
   }, [session]);
+
+  useEffect(() => {
+    if (items.length <= 4) return;
+    const frame = window.requestAnimationFrame(updateGalleryLayout);
+    window.addEventListener("resize", updateGalleryLayout);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updateGalleryLayout);
+    };
+  }, [items.length, updateGalleryLayout]);
 
   useEffect(() => {
     if (!selectedItem) return;
@@ -353,7 +384,14 @@ export default function GalleryPage() {
       )}
 
       {items.length > 0 && (
-        <div className="lumina-gallery-grid">
+        <div
+          ref={galleryRef}
+          className={`lumina-gallery-grid${
+            items.length <= 4 ? " is-sparse" : ""
+          }${
+            items.length === 1 ? " is-single" : ""
+          }`}
+        >
           {items.map((item) => (
             <Card key={item.id} className="lumina-image-card" hoverable>
               {item.imageUrl ? (
@@ -368,6 +406,7 @@ export default function GalleryPage() {
                     src={item.imageUrl}
                     alt={item.prompt}
                     className="lumina-image"
+                    onLoad={updateGalleryLayout}
                   />
                   <span className="lumina-image-preview-hint">查看大图</span>
                 </button>
@@ -530,7 +569,7 @@ export default function GalleryPage() {
 
                     {deleteConfirm ? (
                       <div className="lumina-lightbox-delete-confirm">
-                        <span>删除后无法恢复，也不会退还额度。</span>
+                        <span>删除后无法恢复，也不会退还灵点。</span>
                         <button
                           type="button"
                           onClick={() => setDeleteConfirm(false)}

@@ -80,6 +80,7 @@ CHATGPT2API_BASE_URL=https://your-chatgpt2api.example.com/v1
 CHATGPT2API_KEY=请替换为真实密钥
 RESEND_API_KEY=re_请替换为真实密钥
 RESEND_FROM_EMAIL=Lumina <noreply@your-verified-domain.example>
+TZ=Asia/Shanghai
 ```
 
 配置说明：
@@ -92,6 +93,7 @@ RESEND_FROM_EMAIL=Lumina <noreply@your-verified-domain.example>
 | `RESEND_FROM_EMAIL` | 是 | 验证码发件人，域名必须已在 Resend 中完成验证，可填写 `Lumina <noreply@example.com>` 格式 |
 | `CHATGPT2API_BASE_URL` | 是 | chatgpt2api 的 OpenAI 兼容 API 地址，通常以 `/v1` 结尾 |
 | `CHATGPT2API_KEY` | 是 | chatgpt2api 的访问密钥，仅在服务端读取 |
+| `TZ` | 否 | 每日灵点补给的重置时区，Docker 镜像默认为 `Asia/Shanghai` |
 
 不要提交 `.env` 或任何真实密钥。容器内的 `localhost` 指向 Lumina 容器自身，因此 chatgpt2api 部署在其他容器或主机时，应填写它在容器网络中可访问的地址。
 

@@ -132,7 +132,7 @@ export async function PATCH(req: NextRequest) {
   await writeAdminAudit({
     operatorId: session.user.id,
     action: "system_settings_updated",
-    detail: "更新生图策略、请求限制与新用户默认额度",
+    detail: "更新生图策略、请求限制与新用户初始灵点",
   });
 
   return NextResponse.json({ success: true, data: parsed.data });

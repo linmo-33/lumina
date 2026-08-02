@@ -32,6 +32,7 @@ WORKDIR /app
 ENV NODE_ENV="production"
 ENV PORT="3000"
 ENV HOSTNAME="0.0.0.0"
+ENV TZ="Asia/Shanghai"
 
 RUN groupadd --system --gid 1001 nodejs \
     && useradd --system --uid 1001 --gid nodejs nextjs \

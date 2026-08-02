@@ -186,7 +186,7 @@ export async function PATCH(req: NextRequest) {
     const nextQuota = Math.max(0, target.quota + parsed.data.delta);
     const actualDelta = nextQuota - target.quota;
     if (actualDelta === 0) {
-      return NextResponse.json({ error: "额度已经为 0" }, { status: 400 });
+      return NextResponse.json({ error: "灵点已经为 0" }, { status: 400 });
     }
 
     db.transaction((tx) => {
@@ -212,7 +212,7 @@ export async function PATCH(req: NextRequest) {
       operatorId: session.user.id,
       targetUserId: target.id,
       action: actualDelta > 0 ? "quota_added" : "quota_deducted",
-      detail: `额度 ${actualDelta > 0 ? "+" : ""}${actualDelta}，余额 ${nextQuota}`,
+      detail: `灵点 ${actualDelta > 0 ? "+" : ""}${actualDelta}，余额 ${nextQuota}`,
     });
 
     return NextResponse.json({ success: true, data: { quota: nextQuota } });

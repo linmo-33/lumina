@@ -1,17 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { headers } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { toFile } from "openai";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { user, imageHistory, quotaLogs } from "@/lib/schema";
-import { and, eq, gte, sql } from "drizzle-orm";
-import { createChatgpt2ApiClient } from "@/lib/openai";
-import { saveBase64Image } from "@/lib/image-store";
-import { randomUUID } from "crypto";
-import { getSystemSettings } from "@/lib/system-settings";
 import {
   CHATGPT2API_MAX_IMAGES_PER_CALL,
   isImageSizeAllowedForModel,
 } from "@/lib/image-options";
+import { saveBase64Image } from "@/lib/image-store";
+import { createChatgpt2ApiClient } from "@/lib/openai";
+import { imageHistory, quotaLogs, user } from "@/lib/schema";
+import { getSystemSettings } from "@/lib/system-settings";
+
+export const runtime = "nodejs";
+
+const MAX_SOURCE_IMAGE_BYTES = 25 * 1024 * 1024;
+
+type SupportedSourceImage = {
+  extension: "jpg" | "png" | "webp";
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+};
 
 type UpstreamFailure = {
   responseStatus: number;
@@ -20,6 +30,46 @@ type UpstreamFailure = {
   logMessage: string;
   server: string | null;
 };
+
+function getTextField(formData: FormData, name: string) {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
+function detectSourceImage(bytes: Uint8Array): SupportedSourceImage | null {
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return { extension: "png", mimeType: "image/png" };
+  }
+
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  ) {
+    return { extension: "jpg", mimeType: "image/jpeg" };
+  }
+
+  if (
+    bytes.length >= 12 &&
+    String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
+    String.fromCharCode(...bytes.slice(8, 12)) === "WEBP"
+  ) {
+    return { extension: "webp", mimeType: "image/webp" };
+  }
+
+  return null;
+}
 
 function readHeader(headersValue: unknown, name: string) {
   if (!headersValue || typeof headersValue !== "object") return null;
@@ -54,7 +104,7 @@ function getUpstreamFailure(error: unknown): UpstreamFailure | null {
       responseStatus: 502,
       upstreamStatus,
       message:
-        "请求被上游 Cloudflare/WAF 拦截，请检查 CHATGPT2API_BASE_URL 是否指向可访问的 API 源站，并在上游放行 POST /v1/images/generations",
+        "请求被上游 Cloudflare/WAF 拦截，请在上游放行 POST /v1/images/edits",
       logMessage,
       server,
     };
@@ -65,7 +115,7 @@ function getUpstreamFailure(error: unknown): UpstreamFailure | null {
       responseStatus: 502,
       upstreamStatus,
       message:
-        "生图服务认证或访问权限校验失败，请检查 CHATGPT2API_KEY 与上游访问策略",
+        "图片编辑服务认证或访问权限校验失败，请检查服务配置与上游访问策略",
       logMessage,
       server,
     };
@@ -75,7 +125,7 @@ function getUpstreamFailure(error: unknown): UpstreamFailure | null {
     return {
       responseStatus: 503,
       upstreamStatus,
-      message: "上游生图服务请求过于频繁，请稍后重试",
+      message: "上游图片编辑服务请求过于频繁，请稍后重试",
       logMessage,
       server,
     };
@@ -87,8 +137,8 @@ function getUpstreamFailure(error: unknown): UpstreamFailure | null {
       upstreamStatus,
       message:
         upstreamStatus >= 500
-          ? "上游生图服务暂时不可用，请稍后重试"
-          : `上游生图服务拒绝了请求（${upstreamStatus}）`,
+          ? "上游图片编辑服务暂时不可用，请稍后重试"
+          : `上游图片编辑服务拒绝了请求（${upstreamStatus}）`,
       logMessage,
       server,
     };
@@ -102,7 +152,7 @@ function getUpstreamFailure(error: unknown): UpstreamFailure | null {
     return {
       responseStatus: 504,
       upstreamStatus: null,
-      message: "连接上游生图服务超时，请稍后重试",
+      message: "连接上游图片编辑服务超时，请稍后重试",
       logMessage,
       server,
     };
@@ -120,10 +170,7 @@ export async function POST(req: NextRequest) {
   let completed = false;
 
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
@@ -143,22 +190,30 @@ export async function POST(req: NextRequest) {
     if (!currentUser) {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 });
     }
-
     if (!currentUser.isActive) {
       return NextResponse.json({ error: "账号已被禁用" }, { status: 403 });
     }
 
+    const contentLength = Number(req.headers.get("content-length"));
+    if (
+      Number.isFinite(contentLength) &&
+      contentLength > MAX_SOURCE_IMAGE_BYTES + 1024 * 1024
+    ) {
+      return NextResponse.json(
+        { error: "参考图片不能超过 25 MB" },
+        { status: 413 },
+      );
+    }
+
+    const formData = await req.formData();
     const settings = await getSystemSettings();
-    const body = await req.json();
-    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const model =
-      typeof body.model === "string" ? body.model : settings.defaultModel;
-    const size = typeof body.size === "string" ? body.size : settings.defaultSize;
+    const prompt = getTextField(formData, "prompt").trim();
+    const model = getTextField(formData, "model") || settings.defaultModel;
+    const size = getTextField(formData, "size") || settings.defaultSize;
     const quality =
-      typeof body.quality === "string"
-        ? body.quality
-        : settings.defaultQuality;
-    const count = Number(body.n ?? 1);
+      getTextField(formData, "quality") || settings.defaultQuality;
+    const count = Number(getTextField(formData, "n") || "1");
+    const imageValue = formData.get("image");
 
     requestPrompt = prompt;
     requestModel = model;
@@ -166,11 +221,11 @@ export async function POST(req: NextRequest) {
     requestQuality = quality;
 
     if (!prompt) {
-      return NextResponse.json({ error: "prompt 不能为空" }, { status: 400 });
+      return NextResponse.json({ error: "编辑描述不能为空" }, { status: 400 });
     }
     if (prompt.length > settings.promptMaxLength) {
       return NextResponse.json(
-        { error: `画面描述不能超过 ${settings.promptMaxLength} 个字符` },
+        { error: `编辑描述不能超过 ${settings.promptMaxLength} 个字符` },
         { status: 400 },
       );
     }
@@ -195,11 +250,19 @@ export async function POST(req: NextRequest) {
       count > settings.maxImagesPerRequest
     ) {
       return NextResponse.json(
-        { error: `单次最多生成 ${settings.maxImagesPerRequest} 张图片` },
+        { error: `单次最多编辑生成 ${settings.maxImagesPerRequest} 张图片` },
         { status: 400 },
       );
     }
-
+    if (!(imageValue instanceof File) || imageValue.size === 0) {
+      return NextResponse.json({ error: "请选择一张参考图片" }, { status: 400 });
+    }
+    if (imageValue.size > MAX_SOURCE_IMAGE_BYTES) {
+      return NextResponse.json(
+        { error: "参考图片不能超过 25 MB" },
+        { status: 413 },
+      );
+    }
     if (currentUser.quota < count) {
       return NextResponse.json(
         { error: `灵点不足，需要 ${count} 点，当前剩余 ${currentUser.quota}` },
@@ -207,9 +270,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // chatgpt2api 的网页允许一次选择多张，但 OpenAI 兼容接口单次 n 最大为 4。
-    // 这里按上游限制分批请求，并按实际返回的有效图片数扣减灵点。
+    const sourceBuffer = Buffer.from(await imageValue.arrayBuffer());
+    const sourceType = detectSourceImage(sourceBuffer);
+    if (!sourceType) {
+      return NextResponse.json(
+        { error: "仅支持 PNG、JPG 或 WebP 格式的参考图片" },
+        { status: 415 },
+      );
+    }
+
     const client = createChatgpt2ApiClient();
+    const sourceImage = await toFile(
+      sourceBuffer,
+      `source.${sourceType.extension}`,
+      { type: sourceType.mimeType },
+    );
     const resultItems: Array<{ b64_json?: string | null }> = [];
     let upstreamError: unknown = null;
     const upstreamSize = size === "auto" ? "1024x1024" : size;
@@ -217,7 +292,8 @@ export async function POST(req: NextRequest) {
     for (let remaining = count; remaining > 0; ) {
       const batchSize = Math.min(remaining, CHATGPT2API_MAX_IMAGES_PER_CALL);
       try {
-        const result = await client.images.generate({
+        const result = await client.images.edit({
+          image: sourceImage,
           model,
           prompt,
           n: batchSize,
@@ -241,12 +317,11 @@ export async function POST(req: NextRequest) {
 
     if (resultItems.length === 0) {
       if (upstreamError) throw upstreamError;
-      throw new Error("生图服务未返回有效图片");
+      throw new Error("图片编辑服务未返回有效图片");
     }
 
     const validResultItems = resultItems.slice(0, count);
     const cost = validResultItems.length;
-
     const images: { path: string }[] = [];
     const historyIds: string[] = [];
 
@@ -266,21 +341,17 @@ export async function POST(req: NextRequest) {
       }
 
       for (const item of validResultItems) {
-        const b64 = item.b64_json;
-        if (!b64) continue;
-
-        const imagePath = saveBase64Image(b64);
-        images.push({ path: imagePath });
-
+        if (!item.b64_json) continue;
+        const imagePath = saveBase64Image(item.b64_json);
         const historyId = randomUUID();
+        images.push({ path: imagePath });
         historyIds.push(historyId);
 
-        tx
-          .insert(imageHistory)
+        tx.insert(imageHistory)
           .values({
             id: historyId,
             userId: currentUser.id,
-            type: "generate",
+            type: "edit",
             model,
             prompt,
             size,
@@ -293,13 +364,12 @@ export async function POST(req: NextRequest) {
           .run();
       }
 
-      tx
-        .insert(quotaLogs)
+      tx.insert(quotaLogs)
         .values({
           id: randomUUID(),
           userId: currentUser.id,
           change: -cost,
-          reason: "generate",
+          reason: "edit",
           operatorId: null,
           createdAt: new Date(),
         })
@@ -307,7 +377,6 @@ export async function POST(req: NextRequest) {
     });
 
     completed = true;
-
     return NextResponse.json({
       success: true,
       cost,
@@ -315,41 +384,42 @@ export async function POST(req: NextRequest) {
       partial: cost < count,
       warning:
         cost < count
-          ? `请求 ${count} 张，实际生成 ${cost} 张，仅按实际结果扣除灵点`
+          ? `请求 ${count} 张，实际完成 ${cost} 张，仅按实际结果扣除灵点`
           : undefined,
       remainingQuota: currentUser.quota - cost,
-      images: images.map((img, i) => ({
-        id: historyIds[i],
-        path: img.path,
-        url: `/${img.path}`, // 通过 next 静态或后续 API 提供
+      images: images.map((image, index) => ({
+        id: historyIds[index],
+        path: image.path,
+        url: `/${image.path}`,
       })),
     });
-  } catch (err: unknown) {
-    const upstreamFailure = getUpstreamFailure(err);
+  } catch (error: unknown) {
+    const upstreamFailure = getUpstreamFailure(error);
     if (upstreamFailure) {
-      console.error("[generate:upstream]", {
+      console.error("[edit:upstream]", {
         status: upstreamFailure.upstreamStatus,
         server: upstreamFailure.server,
         message: upstreamFailure.logMessage,
       });
     } else {
-      console.error("[generate]", err);
+      console.error("[edit]", error);
     }
+
     const nestedError =
-      typeof err === "object" && err && "error" in err
-        ? (err as { error?: { message?: string } }).error
+      typeof error === "object" && error && "error" in error
+        ? (error as { error?: { message?: string } }).error
         : undefined;
     const message =
       upstreamFailure?.message ||
       nestedError?.message ||
-      (err instanceof Error ? err.message : "生图失败，请稍后重试");
+      (error instanceof Error ? error.message : "图片编辑失败，请稍后重试");
 
     if (currentUserId && requestPrompt && !completed) {
       try {
         await db.insert(imageHistory).values({
           id: randomUUID(),
           userId: currentUserId,
-          type: "generate",
+          type: "edit",
           model: requestModel,
           prompt: requestPrompt,
           size: requestSize,
@@ -361,7 +431,7 @@ export async function POST(req: NextRequest) {
           createdAt: new Date(),
         });
       } catch (historyError) {
-        console.error("[generate:failed-history]", historyError);
+        console.error("[edit:failed-history]", historyError);
       }
     }
 

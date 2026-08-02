@@ -10,11 +10,13 @@ import {
   Icon,
   Wallet,
 } from "animal-island-ui";
+import item476 from "animal-island-ui/items/item-476.png";
+import item306 from "animal-island-ui/items/item-306.png";
 import { AppFooter } from "@/components/app-footer";
 import { notify } from "@/components/app-notifications";
 import { signOut } from "@/lib/auth-client";
 
-type ActivePage = "generate" | "gallery" | "admin";
+type ActivePage = "generate" | "gallery" | "rewards" | "admin";
 
 interface AppShellProps {
   active: ActivePage;
@@ -27,9 +29,13 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
+const rewardsNavIcon = typeof item476 === "string" ? item476 : item476.src;
+const accountIcon = typeof item306 === "string" ? item306 : item306.src;
+
 const navItems = [
-  { key: "generate", href: "/generate", label: "创作", icon: "icon-design" },
-  { key: "gallery", href: "/gallery", label: "作品库", icon: "icon-camera" },
+  { key: "generate", href: "/generate", label: "创作", iconName: "icon-design" },
+  { key: "gallery", href: "/gallery", label: "作品库", iconName: "icon-camera" },
+  { key: "rewards", href: "/rewards", label: "灵海", iconSrc: rewardsNavIcon },
 ] as const;
 
 export function AppShell({
@@ -107,20 +113,27 @@ export function AppShell({
                       active === item.key ? "is-active" : ""
                     }`}
                   >
-                    <Icon name={item.icon} size={20} />
+                    {"iconSrc" in item ? (
+                      <Icon src={item.iconSrc} size={20} />
+                    ) : (
+                      <Icon name={item.iconName} size={20} />
+                    )}
                     <span>{item.label}</span>
                   </Link>
                 ))}
               </nav>
 
               <div className="lumina-user-actions">
-                <Wallet value={quota ?? user.quota ?? 0} size="small" />
+                <Link href="/rewards" className="lumina-wallet-link" aria-label="进入灵海">
+                  <Wallet value={quota ?? user.quota ?? 0} size="small" />
+                  <span className="lumina-wallet-label">灵点</span>
+                </Link>
                 <div className="lumina-account" ref={accountMenuRef}>
                   <Button
                     className="lumina-account-trigger"
                     size="small"
                     type="text"
-                    icon={<Icon name="icon-variant" size={18} />}
+                    icon={<Icon src={accountIcon} size={18} />}
                     onClick={() => setMenuOpen((open) => !open)}
                     aria-haspopup="menu"
                     aria-expanded={menuOpen}

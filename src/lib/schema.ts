@@ -1,4 +1,10 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 // ==================== Better Auth 核心表 ====================
 
@@ -86,6 +92,53 @@ export const quotaLogs = sqliteTable("quota_logs", {
   operatorId: text("operator_id"), // 管理员 id，系统操作为 null
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
+
+export const dailyRewards = sqliteTable(
+  "daily_rewards",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    rewardDate: text("reward_date").notNull(),
+    reward: integer("reward").notNull(),
+    minimumSnapshot: integer("minimum_snapshot").notNull(),
+    maximumSnapshot: integer("maximum_snapshot").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("daily_rewards_user_date_unique").on(
+      table.userId,
+      table.rewardDate,
+    ),
+    index("daily_rewards_created_at_index").on(table.createdAt),
+  ],
+);
+
+export const lotteryDraws = sqliteTable(
+  "lottery_draws",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    cost: integer("cost").notNull(),
+    prizeId: text("prize_id").notNull(),
+    prizeNameSnapshot: text("prize_name_snapshot").notNull(),
+    iconKeySnapshot: text("icon_key_snapshot"),
+    reelIconsSnapshot: text("reel_icons_snapshot").notNull(),
+    multiplierSnapshot: integer("multiplier_snapshot").notNull(),
+    reward: integer("reward").notNull(),
+    balanceAfter: integer("balance_after").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("lottery_draws_request_id_unique").on(table.requestId),
+    index("lottery_draws_user_id_index").on(table.userId),
+    index("lottery_draws_created_at_index").on(table.createdAt),
+  ],
+);
 
 export const systemSettings = sqliteTable("system_settings", {
   key: text("key").primaryKey(),

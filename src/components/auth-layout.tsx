@@ -48,7 +48,7 @@ export function AuthLayout({ mode, children }: AuthLayoutProps) {
               <p className="lumina-description">
                 {isLogin
                   ? "登录后继续你的创作旅程。"
-                  : "创建账号即可获得管理员配置的初始创作额度。"}
+                  : "创建账号即可获得管理员配置的初始灵点。"}
               </p>
               <Divider type="dashed-brown" style={{ margin: "20px 0" }} />
               {children}

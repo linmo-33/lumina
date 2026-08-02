@@ -5,6 +5,7 @@ const adminSections = new Set<AdminSection>([
   "users",
   "quota",
   "usage",
+  "strategies",
   "settings",
 ]);
 const pageSizes = new Set([10, 20, 50, 100]);

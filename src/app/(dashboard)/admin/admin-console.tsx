@@ -22,9 +22,15 @@ import {
   CHATGPT2API_PAGE_MAX_IMAGES,
   CHATGPT2API_SIZE_OPTIONS,
 } from "@/lib/image-options";
+import {
+  isIntegerInRange,
+  parseNumericInput,
+  type NumericInputValue,
+} from "@/lib/numeric-input";
 import { AppLoading, AppShell } from "@/components/app-shell";
 import { notify } from "@/components/app-notifications";
 import { useSession } from "@/lib/auth-client";
+import { RewardStrategyPanel } from "./reward-strategy-panel";
 
 interface UserRow {
   id: string;
@@ -74,9 +80,9 @@ interface SystemSettings {
   allowedSizes: string[];
   defaultQuality: string;
   allowedQualities: string[];
-  maxImagesPerRequest: number;
-  promptMaxLength: number;
-  defaultUserQuota: number;
+  maxImagesPerRequest: NumericInputValue;
+  promptMaxLength: NumericInputValue;
+  defaultUserQuota: NumericInputValue;
 }
 
 interface UserDetail {
@@ -134,8 +140,8 @@ const adminNavigation = [
   },
   {
     key: "quota",
-    label: "额度管理",
-    description: "额度调整与记录",
+    label: "灵点管理",
+    description: "灵点调整与记录",
     icon: "icon-shopping",
   },
   {
@@ -143,6 +149,12 @@ const adminNavigation = [
     label: "调用记录",
     description: "请求状态与结果",
     icon: "icon-camera",
+  },
+  {
+    key: "strategies",
+    label: "策略管理",
+    description: "补给与灵光机",
+    icon: "icon-variant",
   },
   {
     key: "settings",
@@ -225,12 +237,13 @@ function formatDate(value: string | Date | null | undefined) {
 
 function getActionLabel(action: string) {
   const labels: Record<string, string> = {
-    quota_added: "增加额度",
-    quota_deducted: "扣减额度",
+    quota_added: "增加灵点",
+    quota_deducted: "扣减灵点",
     user_blocked: "封禁用户",
     user_unblocked: "解除封禁",
     password_reset: "重置密码",
     system_settings_updated: "更新系统配置",
+    reward_strategy_updated: "更新灵点策略",
   };
   return labels[action] || action;
 }
@@ -430,7 +443,7 @@ export default function AdminConsole({
     try {
       return await runUserAction(
         { action: "quota", userId, delta },
-        `额度已${delta > 0 ? "增加" : "减少"} ${Math.abs(delta)}`,
+        `灵点已${delta > 0 ? "增加" : "减少"} ${Math.abs(delta)}`,
       );
     } finally {
       setAdjustingQuotaUserId(null);
@@ -442,8 +455,8 @@ export default function AdminConsole({
     if (!Number.isSafeInteger(amount) || amount < 1 || amount > 100000) {
       notify.error({
         key: "admin-custom-quota",
-        message: "请输入有效额度",
-        description: "额度必须是 1 至 100000 之间的整数",
+        message: "请输入有效灵点",
+        description: "灵点必须是 1 至 100000 之间的整数",
         position: "topRight",
       });
       return;
@@ -501,6 +514,36 @@ export default function AdminConsole({
 
   async function saveSettings() {
     if (!settings) return;
+
+    const invalidSetting = [
+      {
+        label: "单次最大图片数",
+        valid: isIntegerInRange(
+          settings.maxImagesPerRequest,
+          1,
+          CHATGPT2API_PAGE_MAX_IMAGES,
+        ),
+      },
+      {
+        label: "提示词最大字符数",
+        valid: isIntegerInRange(settings.promptMaxLength, 100, 20000),
+      },
+      {
+        label: "新用户初始灵点",
+        valid: isIntegerInRange(settings.defaultUserQuota, 0, 100000),
+      },
+    ].find((item) => !item.valid);
+
+    if (invalidSetting) {
+      notify.error({
+        key: "admin-settings",
+        message: `${invalidSetting.label}填写不正确`,
+        description: "请填写输入框允许范围内的整数",
+        position: "topRight",
+      });
+      return;
+    }
+
     setSavingSettings(true);
     try {
       const response = await fetch("/api/admin/settings", {
@@ -569,7 +612,7 @@ export default function AdminConsole({
       ),
     },
     {
-      title: "额度",
+      title: "灵点",
       dataIndex: "quota",
       width: 90,
       align: "center",
@@ -624,7 +667,7 @@ export default function AdminConsole({
   const quotaColumns: TableColumn[] = [
     userColumns[0],
     {
-      title: "当前额度",
+      title: "当前灵点",
       dataIndex: "quota",
       width: 120,
       align: "center",
@@ -637,7 +680,7 @@ export default function AdminConsole({
       align: "center",
     },
     {
-      title: "额度调整",
+      title: "灵点调整",
       width: 520,
       render: (_value, record) => {
         const userId = String(record.id);
@@ -645,7 +688,7 @@ export default function AdminConsole({
         const adjustmentDisabled = adjustingQuotaUserId !== null;
         return (
           <div className="admin-quota-actions">
-            <div className="admin-quota-quick" aria-label="快捷调整额度">
+            <div className="admin-quota-quick" aria-label="快捷调整灵点">
               <Button
                 size="small"
                 danger
@@ -685,8 +728,8 @@ export default function AdminConsole({
                 max={100000}
                 step={1}
                 inputMode="numeric"
-                placeholder="自定义额度"
-                aria-label={`调整 ${String(record.name || "用户")} 的额度`}
+                placeholder="自定义灵点"
+                aria-label={`调整 ${String(record.name || "用户")} 的灵点`}
                 value={quotaInputs[userId] || ""}
                 disabled={adjustmentDisabled}
                 onChange={(event) =>
@@ -808,15 +851,15 @@ export default function AdminConsole({
     },
     {
       key: "quota",
-      label: "额度管理",
+      label: "灵点管理",
       children: (
         <Card className="admin-workspace-card">
           <div className="admin-workspace-heading">
             <div>
-              <strong>创作额度</strong>
-              <p>支持快捷或自定义增减；额度最低为 0，每次调整都会写入额度日志和管理员审计。</p>
+              <strong>创作灵点</strong>
+              <p>支持快捷或自定义增减；灵点最低为 0，每次调整都会写入灵点日志和管理员审计。</p>
             </div>
-            <Tag color="app-yellow" variant="solid">共 {overview.totalQuota} 额度</Tag>
+            <Tag color="app-yellow" variant="solid">共 {overview.totalQuota} 灵点</Tag>
           </div>
           <Table
             className="admin-data-table"
@@ -877,6 +920,11 @@ export default function AdminConsole({
       ),
     },
     {
+      key: "strategies",
+      label: "策略管理",
+      children: <RewardStrategyPanel />,
+    },
+    {
       key: "settings",
       label: "系统配置",
       children: settings ? (
@@ -933,7 +981,12 @@ export default function AdminConsole({
                     min={1}
                     max={CHATGPT2API_PAGE_MAX_IMAGES}
                     value={settings.maxImagesPerRequest}
-                    onChange={(event) => setSettings({ ...settings, maxImagesPerRequest: Number(event.target.value) })}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        maxImagesPerRequest: parseNumericInput(event.target.value),
+                      })
+                    }
                     shadow
                   />
                 </div>
@@ -985,7 +1038,7 @@ export default function AdminConsole({
             <p className="lumina-kicker">LIMITS & SECURITY</p>
             <Title color="app-yellow">限制与部署边界</Title>
             <p className="lumina-description">
-              新用户额度和提示词限制存入数据库；密钥与服务地址仍由部署环境提供。
+              新用户灵点和提示词限制存入数据库；密钥与服务地址仍由部署环境提供。
             </p>
             <Divider type="dashed-brown" style={{ margin: "18px 0" }} />
 
@@ -998,19 +1051,29 @@ export default function AdminConsole({
                   min={100}
                   max={20000}
                   value={settings.promptMaxLength}
-                  onChange={(event) => setSettings({ ...settings, promptMaxLength: Number(event.target.value) })}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      promptMaxLength: parseNumericInput(event.target.value),
+                    })
+                  }
                   shadow
                 />
               </div>
               <div className="lumina-field">
-                <label className="lumina-field-label" htmlFor="default-quota">新用户默认额度</label>
+                <label className="lumina-field-label" htmlFor="default-quota">新用户初始灵点</label>
                 <Input
                   id="default-quota"
                   type="number"
                   min={0}
                   max={100000}
                   value={settings.defaultUserQuota}
-                  onChange={(event) => setSettings({ ...settings, defaultUserQuota: Number(event.target.value) })}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      defaultUserQuota: parseNumericInput(event.target.value),
+                    })
+                  }
                   shadow
                 />
               </div>
@@ -1129,7 +1192,7 @@ export default function AdminConsole({
             </Card>
             <Card className="admin-stat-card" color="default">
               <span className="admin-stat-icon is-yellow"><Icon name="icon-miles" size={20} /></span>
-              <div><strong>{overview.totalQuota}</strong><span>可用额度</span></div>
+              <div><strong>{overview.totalQuota}</strong><span>可用灵点</span></div>
               <small>累计使用 {usageSummary.totalCost}</small>
             </Card>
             <Card className="admin-stat-card" color="default">
@@ -1170,7 +1233,7 @@ export default function AdminConsole({
             </div>
             <div className="admin-detail-grid">
               <div><span>身份</span><strong>{selectedUser.target.role === "admin" ? "管理员" : "用户"}</strong></div>
-              <div><span>剩余额度</span><strong>{selectedUser.target.quota}</strong></div>
+              <div><span>剩余灵点</span><strong>{selectedUser.target.quota}</strong></div>
               <div><span>累计使用</span><strong>{selectedUser.target.used}</strong></div>
               <div><span>注册时间</span><strong>{formatDate(selectedUser.target.createdAt)}</strong></div>
             </div>
@@ -1178,16 +1241,16 @@ export default function AdminConsole({
             <Divider type="dashed-brown" />
             <section className="admin-detail-section admin-detail-records">
               <div className="admin-detail-section-heading">
-                <strong>最近额度变更</strong>
+                <strong>最近灵点变更</strong>
                 <span>{selectedUser.recentQuotaLogs.length} 条</span>
               </div>
               <div
                 className="admin-detail-scroll"
                 role="region"
-                aria-label="最近额度变更记录"
+                aria-label="最近灵点变更记录"
                 tabIndex={0}
               >
-                {selectedUser.recentQuotaLogs.length === 0 && <p>暂无额度记录</p>}
+                {selectedUser.recentQuotaLogs.length === 0 && <p>暂无灵点记录</p>}
                 {selectedUser.recentQuotaLogs.map((log) => (
                   <div className="admin-log-row" key={log.id}>
                     <span>{log.reason}</span>
