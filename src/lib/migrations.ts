@@ -20,7 +20,7 @@ const migrations: Migration[] = [
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         role TEXT NOT NULL DEFAULT 'user',
-        quota INTEGER NOT NULL DEFAULT 10,
+        quota REAL NOT NULL DEFAULT 10,
         used INTEGER NOT NULL DEFAULT 0,
         is_active INTEGER NOT NULL DEFAULT 1
       );
@@ -91,7 +91,7 @@ const migrations: Migration[] = [
       CREATE TABLE IF NOT EXISTS quota_logs (
         id TEXT PRIMARY KEY NOT NULL,
         user_id TEXT NOT NULL,
-        change INTEGER NOT NULL,
+        change REAL NOT NULL,
         reason TEXT NOT NULL,
         operator_id TEXT,
         created_at INTEGER NOT NULL,
@@ -202,9 +202,9 @@ const migrations: Migration[] = [
         prize_name_snapshot TEXT NOT NULL,
         icon_key_snapshot TEXT,
         reel_icons_snapshot TEXT NOT NULL,
-        multiplier_snapshot INTEGER NOT NULL,
-        reward INTEGER NOT NULL,
-        balance_after INTEGER NOT NULL,
+        multiplier_snapshot REAL NOT NULL,
+        reward REAL NOT NULL,
+        balance_after REAL NOT NULL,
         created_at INTEGER NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
       );
@@ -221,7 +221,56 @@ const migrations: Migration[] = [
       INSERT OR IGNORE INTO system_settings (key, value, updated_by, updated_at)
         VALUES
           ('dailyRewardPolicy', '{"enabled":true,"minimum":1,"maximum":3}', NULL, unixepoch() * 1000),
-          ('lotteryPolicy', '{"enabled":true,"minimumBet":1,"maximumBet":100,"prizes":[{"id":"none","name":"未中奖","iconKey":null,"weight":55,"multiplier":0,"enabled":true},{"id":"return","name":"灵点返还","iconKey":"item-020","weight":28,"multiplier":1,"enabled":true},{"id":"flash","name":"灵光闪现","iconKey":"item-200","weight":12,"multiplier":2,"enabled":true},{"id":"bloom","name":"灵感绽放","iconKey":"item-371","weight":4,"multiplier":3,"enabled":true},{"id":"miracle","name":"灵感奇迹","iconKey":"item-476","weight":1,"multiplier":10,"enabled":true}]}', NULL, unixepoch() * 1000);
+          ('lotteryPolicy', '{"enabled":true,"minimumBet":1,"maximumBet":50,"prizes":[{"id":"sprout-rest","name":"青叶小憩","iconKey":"sprout-rest","weight":5500,"multiplier":0,"enabled":true},{"id":"cherry-glow","name":"双樱微光","iconKey":"cherry-glow","weight":2800,"multiplier":1,"enabled":true},{"id":"green-apple","name":"青苹果","iconKey":"green-apple","weight":700,"multiplier":1.5,"enabled":true},{"id":"warm-mandarin","name":"暖橘星球","iconKey":"warm-mandarin","weight":500,"multiplier":2,"enabled":true},{"id":"morning-peach","name":"蜜桃晨光","iconKey":"morning-peach","weight":250,"multiplier":3,"enabled":true},{"id":"starlight-grapes","name":"葡萄星串","iconKey":"starlight-grapes","weight":120,"multiplier":5,"enabled":true},{"id":"star-dragon-fruit","name":"星芒火龙果","iconKey":"star-dragon-fruit","weight":70,"multiplier":8,"enabled":true},{"id":"harvest-grand-prize","name":"星辉丰收","iconKey":"harvest-grand-prize","weight":40,"multiplier":10,"enabled":true},{"id":"aurora-orchard-jackpot","name":"极光果园","iconKey":"aurora-orchard-jackpot","weight":20,"multiplier":20,"enabled":true}]}', NULL, unixepoch() * 1000);
+    `,
+  },
+  {
+    id: 5,
+    name: "lottery_orchard_prizes",
+    sql: `
+      UPDATE system_settings
+      SET value = '{"enabled":true,"minimumBet":1,"maximumBet":50,"prizes":[{"id":"sprout-rest","name":"青叶小憩","iconKey":"sprout-rest","weight":5500,"multiplier":0,"enabled":true},{"id":"cherry-glow","name":"双樱微光","iconKey":"cherry-glow","weight":2800,"multiplier":1,"enabled":true},{"id":"green-apple","name":"青苹果","iconKey":"green-apple","weight":700,"multiplier":1.5,"enabled":true},{"id":"warm-mandarin","name":"暖橘星球","iconKey":"warm-mandarin","weight":500,"multiplier":2,"enabled":true},{"id":"morning-peach","name":"蜜桃晨光","iconKey":"morning-peach","weight":250,"multiplier":3,"enabled":true},{"id":"starlight-grapes","name":"葡萄星串","iconKey":"starlight-grapes","weight":120,"multiplier":5,"enabled":true},{"id":"star-dragon-fruit","name":"星芒火龙果","iconKey":"star-dragon-fruit","weight":70,"multiplier":8,"enabled":true},{"id":"harvest-grand-prize","name":"星辉丰收","iconKey":"harvest-grand-prize","weight":40,"multiplier":10,"enabled":true},{"id":"aurora-orchard-jackpot","name":"极光果园","iconKey":"aurora-orchard-jackpot","weight":20,"multiplier":20,"enabled":true}]}',
+          updated_at = unixepoch() * 1000
+      WHERE key = 'lotteryPolicy'
+        AND updated_by IS NULL
+        AND value = '{"enabled":true,"minimumBet":1,"maximumBet":100,"prizes":[{"id":"none","name":"未中奖","iconKey":null,"weight":55,"multiplier":0,"enabled":true},{"id":"return","name":"灵点返还","iconKey":"item-020","weight":28,"multiplier":1,"enabled":true},{"id":"flash","name":"灵光闪现","iconKey":"item-200","weight":12,"multiplier":2,"enabled":true},{"id":"bloom","name":"灵感绽放","iconKey":"item-371","weight":4,"multiplier":3,"enabled":true},{"id":"miracle","name":"灵感奇迹","iconKey":"item-476","weight":1,"multiplier":10,"enabled":true}]}';
+    `,
+  },
+  {
+    id: 6,
+    name: "replace_legacy_lottery_policy",
+    sql: `
+      UPDATE system_settings
+      SET value = '{"enabled":true,"minimumBet":1,"maximumBet":50,"prizes":[{"id":"sprout-rest","name":"青叶小憩","iconKey":"sprout-rest","weight":5500,"multiplier":0,"enabled":true},{"id":"cherry-glow","name":"双樱微光","iconKey":"cherry-glow","weight":2800,"multiplier":1,"enabled":true},{"id":"green-apple","name":"青苹果","iconKey":"green-apple","weight":700,"multiplier":1.5,"enabled":true},{"id":"warm-mandarin","name":"暖橘星球","iconKey":"warm-mandarin","weight":500,"multiplier":2,"enabled":true},{"id":"morning-peach","name":"蜜桃晨光","iconKey":"morning-peach","weight":250,"multiplier":3,"enabled":true},{"id":"starlight-grapes","name":"葡萄星串","iconKey":"starlight-grapes","weight":120,"multiplier":5,"enabled":true},{"id":"star-dragon-fruit","name":"星芒火龙果","iconKey":"star-dragon-fruit","weight":70,"multiplier":8,"enabled":true},{"id":"harvest-grand-prize","name":"星辉丰收","iconKey":"harvest-grand-prize","weight":40,"multiplier":10,"enabled":true},{"id":"aurora-orchard-jackpot","name":"极光果园","iconKey":"aurora-orchard-jackpot","weight":20,"multiplier":20,"enabled":true}]}',
+          updated_by = NULL,
+          updated_at = unixepoch() * 1000
+      WHERE key = 'lotteryPolicy'
+        AND (
+          value LIKE '%"iconKey":"item-%'
+          OR value LIKE '%"iconKey":null%'
+        );
+    `,
+  },
+  {
+    id: 8,
+    name: "remove_lottery_prize_names",
+    sql: `
+      UPDATE system_settings
+      SET value = json_remove(
+                    value,
+                    '$.prizes[0].name',
+                    '$.prizes[1].name',
+                    '$.prizes[2].name',
+                    '$.prizes[3].name',
+                    '$.prizes[4].name',
+                    '$.prizes[5].name',
+                    '$.prizes[6].name',
+                    '$.prizes[7].name',
+                    '$.prizes[8].name',
+                    '$.prizes[9].name'
+                  ),
+          updated_at = unixepoch() * 1000
+      WHERE key = 'lotteryPolicy';
     `,
   },
 ];

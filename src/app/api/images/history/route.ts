@@ -5,7 +5,7 @@ import path from "node:path";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { imageHistory } from "@/lib/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { and, asc, count, desc, eq, like } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,24 +21,35 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 20));
     const offset = (page - 1) * pageSize;
+    const type = searchParams.get("type");
+    const query = searchParams.get("q")?.trim().slice(0, 100) || "";
+    const sort = searchParams.get("sort") === "oldest" ? "oldest" : "newest";
+    const filters = [
+      eq(imageHistory.userId, session.user.id),
+      eq(imageHistory.status, "success"),
+    ];
+    if (type === "generate" || type === "edit") filters.push(eq(imageHistory.type, type));
+    if (query) filters.push(like(imageHistory.prompt, `%${query}%`));
+    const where = and(...filters);
 
-    const rows = await db
-      .select()
-      .from(imageHistory)
-      .where(
-        and(
-          eq(imageHistory.userId, session.user.id),
-          eq(imageHistory.status, "success")
-        )
-      )
-      .orderBy(desc(imageHistory.createdAt))
-      .limit(pageSize)
-      .offset(offset);
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select()
+        .from(imageHistory)
+        .where(where)
+        .orderBy(sort === "oldest" ? asc(imageHistory.createdAt) : desc(imageHistory.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db.select({ value: count() }).from(imageHistory).where(where),
+    ]);
+    const total = Number(totalRows[0]?.value ?? 0);
 
     return NextResponse.json({
       success: true,
       page,
       pageSize,
+      total,
+      hasMore: offset + rows.length < total,
       data: rows.map((r) => ({
         id: r.id,
         type: r.type,

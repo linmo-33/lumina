@@ -9,10 +9,27 @@ import {
   getRewardPolicies,
   lotteryPolicySchema,
 } from "@/lib/reward-policy";
+import { LOTTERY_PROBABILITY_SCALE } from "@/lib/lottery-prizes";
+
+const lotteryPolicyUpdateSchema = lotteryPolicySchema.superRefine(
+  (policy, context) => {
+    const enabledWeight = policy.prizes.reduce(
+      (sum, prize) => sum + (prize.enabled ? prize.weight : 0),
+      0,
+    );
+    if (enabledWeight !== LOTTERY_PROBABILITY_SCALE) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["prizes"],
+        message: "已启用奖池项的抽取概率合计必须为 100%",
+      });
+    }
+  },
+);
 
 const updateSchema = z.discriminatedUnion("strategy", [
   z.object({ strategy: z.literal("daily"), policy: dailyRewardPolicySchema }),
-  z.object({ strategy: z.literal("lottery"), policy: lotteryPolicySchema }),
+  z.object({ strategy: z.literal("lottery"), policy: lotteryPolicyUpdateSchema }),
 ]);
 
 export async function GET() {

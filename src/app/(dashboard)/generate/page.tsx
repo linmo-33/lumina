@@ -1,594 +1,127 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useSession } from "@/lib/auth-client";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Button,
-  Card,
-  Divider,
-  Icon,
-  Progress,
-  Select,
-  Tag,
-  Title,
-} from "animal-island-ui";
+import { useSession } from "@/lib/auth-client";
 import { AppLoading, AppShell } from "@/components/app-shell";
 import { notify } from "@/components/app-notifications";
-import {
-  CHATGPT2API_PAGE_MAX_IMAGES,
-  CHATGPT2API_SIZE_OPTIONS,
-  isImageSizeAllowedForModel,
-} from "@/lib/image-options";
-
-const allSizeOptions = CHATGPT2API_SIZE_OPTIONS.map((option) => ({
-  key: option.value,
-  label: option.label,
-}));
-
-const allQualityOptions = [
-  { key: "auto", label: "自动" },
-  { key: "low", label: "快速" },
-  { key: "medium", label: "标准" },
-  { key: "high", label: "精细" },
-];
-
-interface ImageConfig {
-  defaultModel: string;
-  allowedModels: string[];
-  defaultSize: string;
-  allowedSizes: string[];
-  defaultQuality: string;
-  allowedQualities: string[];
-  maxImagesPerRequest: number;
-  promptMaxLength: number;
-}
-
-const fallbackConfig: ImageConfig = {
-  defaultModel: "gpt-image-2",
-  allowedModels: ["gpt-image-2", "codex-gpt-image-2"],
-  defaultSize: "1024x1024",
-  allowedSizes: allSizeOptions.map((option) => option.key),
-  defaultQuality: "auto",
-  allowedQualities: allQualityOptions.map((option) => option.key),
-  maxImagesPerRequest: CHATGPT2API_PAGE_MAX_IMAGES,
-  promptMaxLength: 4000,
-};
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { ImagePlus, Images, LoaderCircle, RefreshCw, Sparkles } from "lucide-react";
+import { CHATGPT2API_PAGE_MAX_IMAGES, CHATGPT2API_QUALITY_OPTIONS, CHATGPT2API_SIZE_OPTIONS, isImageSizeAllowedForModel } from "@/lib/image-options";
 
 type CreationMode = "generate" | "edit";
-
-const MAX_SOURCE_IMAGE_BYTES = 25 * 1024 * 1024;
-const ACCEPTED_SOURCE_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
+interface ImageConfig { defaultModel: string; allowedModels: string[]; defaultSize: string; allowedSizes: string[]; defaultQuality: string; allowedQualities: string[]; maxImagesPerRequest: number; promptMaxLength: number; }
+const allSizes = CHATGPT2API_SIZE_OPTIONS;
+const allQualities = CHATGPT2API_QUALITY_OPTIONS;
+const fallbackConfig: ImageConfig = { defaultModel: "gpt-image-2", allowedModels: ["gpt-image-2"], defaultSize: "1024x1024", allowedSizes: allSizes.map((item) => item.value), defaultQuality: "auto", allowedQualities: allQualities.map((item) => item.value), maxImagesPerRequest: CHATGPT2API_PAGE_MAX_IMAGES, promptMaxLength: 4000 };
+const initialImage = fallbackConfig;
 
 export default function GeneratePage() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
+  const [config, setConfig] = useState<ImageConfig>(initialImage);
+  const [mode, setMode] = useState<CreationMode>("generate");
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState("gpt-image-2");
-  const [size, setSize] = useState("1024x1024");
-  const [quality, setQuality] = useState("auto");
-  const [n, setN] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState(0);
+  const [model, setModel] = useState(initialImage.defaultModel);
+  const [size, setSize] = useState(initialImage.defaultSize);
+  const [quality, setQuality] = useState(initialImage.defaultQuality);
+  const [count, setCount] = useState(1);
+  const [source, setSource] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
   const [results, setResults] = useState<{ id: string; url: string }[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [config, setConfig] = useState<ImageConfig>(fallbackConfig);
-  const [mode, setMode] = useState<CreationMode>("generate");
-  const [sourceImage, setSourceImage] = useState<File | null>(null);
-  const [sourcePreview, setSourcePreview] = useState("");
-  const sourceInputRef = useRef<HTMLInputElement>(null);
-  const sourcePreviewRef = useRef("");
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!isPending && !session) {
-      router.replace("/login");
-    }
-  }, [isPending, session, router]);
-
+  useEffect(() => { if (!isPending && !session) router.replace("/login"); }, [isPending, session, router]);
   useEffect(() => {
     if (!session) return;
-
-    fetch("/api/images/config")
-      .then((response) => response.json())
-      .then((data) => {
-        if (!data.success) return;
-        const nextConfig = data.data as ImageConfig;
-        setConfig(nextConfig);
-        setModel(nextConfig.defaultModel);
-        setSize(
-          isImageSizeAllowedForModel(
-            nextConfig.defaultSize,
-            nextConfig.defaultModel,
-          )
-            ? nextConfig.defaultSize
-            : nextConfig.allowedSizes.find((value) =>
-                isImageSizeAllowedForModel(value, nextConfig.defaultModel),
-              ) || "1024x1024",
-        );
-        setQuality(nextConfig.defaultQuality);
-        setN((current) => Math.min(current, nextConfig.maxImagesPerRequest));
-      })
-      .catch(() =>
-        notify.error({
-          key: "image-config",
-          message: "生图配置加载失败",
-          description: "当前将使用默认配置，请刷新页面后重试",
-          position: "topRight",
-        }),
-      );
+    fetch("/api/images/config").then((response) => response.json()).then((payload) => {
+      if (!payload.success) return;
+      const next = payload.data as ImageConfig;
+      setConfig(next); setModel(next.defaultModel); setQuality(next.defaultQuality);
+      setSize(next.allowedSizes.find((value) => isImageSizeAllowedForModel(value, next.defaultModel)) ?? "1024x1024");
+    }).catch(() => notify.error({ key: "image-config", message: "生图配置加载失败", description: "当前使用默认配置", position: "topRight" }));
   }, [session]);
+  useEffect(() => { if (!loading) return; const timer = window.setInterval(() => setProgress((value) => Math.min(value + (value < 36 ? 7 : value < 72 ? 4 : 1), 92)), 800); return () => window.clearInterval(timer); }, [loading]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
-  useEffect(() => {
-    if (!loading) return;
-    const timer = window.setInterval(() => {
-      setGenerationProgress((current) => {
-        if (current >= 92) return current;
-        if (current < 36) return Math.min(92, current + 7);
-        if (current < 72) return Math.min(92, current + 4);
-        return Math.min(92, current + 1);
-      });
-    }, 800);
-    return () => window.clearInterval(timer);
-  }, [loading]);
-
-  useEffect(
-    () => () => {
-      if (sourcePreviewRef.current) {
-        URL.revokeObjectURL(sourcePreviewRef.current);
-      }
-    },
-    [],
-  );
-
-  if (isPending) {
-    return <AppLoading />;
-  }
-
-  if (!session) {
-    return <AppLoading label="正在前往登录页…" />;
-  }
-
-  const user = session.user as typeof session.user & {
-    quota?: number;
-    used?: number;
-    role?: string;
-  };
-  const modelOptions = config.allowedModels.map((value) => ({
-    key: value,
-    label: value,
-  }));
-  const sizeOptions = allSizeOptions.filter(
-    (option) =>
-      config.allowedSizes.includes(option.key) &&
-      isImageSizeAllowedForModel(option.key, model),
-  );
-  const qualityOptions = allQualityOptions.filter((option) =>
-    config.allowedQualities.includes(option.key),
-  );
-  const countOptions = Array.from(
-    { length: config.maxImagesPerRequest },
-    (_, index) => ({
-      key: String(index + 1),
-      label: `${index + 1} 张图片`,
-    }),
-  );
-
-  function handleModelChange(nextModel: string) {
-    setModel(nextModel);
-    if (isImageSizeAllowedForModel(size, nextModel)) return;
-
-    const nextSize = config.allowedSizes.find((value) =>
-      isImageSizeAllowedForModel(value, nextModel),
-    );
-    if (nextSize) setSize(nextSize);
-  }
-
-  function handleModeChange(nextMode: CreationMode) {
-    if (loading || nextMode === mode) return;
-    setMode(nextMode);
-    setResults([]);
-  }
-
-  function handleSourceImageChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  const sizeOptions = useMemo(() => config.allowedSizes.filter((value) => isImageSizeAllowedForModel(value, model)), [config.allowedSizes, model]);
+  const canSubmit = Boolean(prompt.trim()) && !loading && (mode === "generate" || source);
+  function changeModel(value: string) { setModel(value); if (!isImageSizeAllowedForModel(size, value)) setSize(config.allowedSizes.find((item) => isImageSizeAllowedForModel(item, value)) ?? "1024x1024"); }
+  function changeMode(value: string) { if (loading) return; setMode(value as CreationMode); setResults([]); }
+  function chooseSource(file: File | undefined) {
     if (!file) return;
-
-    const hasSupportedExtension = /\.(png|jpe?g|webp)$/i.test(file.name);
-    if (!ACCEPTED_SOURCE_IMAGE_TYPES.has(file.type) && !hasSupportedExtension) {
-      event.target.value = "";
-      notify.error({
-        key: "source-image",
-        message: "图片格式不支持",
-        description: "请选择 PNG、JPG 或 WebP 图片",
-        position: "topRight",
-      });
-      return;
-    }
-    if (file.size > MAX_SOURCE_IMAGE_BYTES) {
-      event.target.value = "";
-      notify.error({
-        key: "source-image",
-        message: "图片文件过大",
-        description: "参考图片不能超过 25 MB",
-        position: "topRight",
-      });
-      return;
-    }
-
-    notify.destroy("source-image");
-    if (sourcePreviewRef.current) {
-      URL.revokeObjectURL(sourcePreviewRef.current);
-    }
-    const objectUrl = URL.createObjectURL(file);
-    sourcePreviewRef.current = objectUrl;
-    setSourcePreview(objectUrl);
-    setSourceImage(file);
-    setResults([]);
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type) || file.size > 25 * 1024 * 1024) { notify.error({ key: "source", message: "参考图片不可用", description: "请选择 PNG、JPG 或 WebP，且不超过 25 MB", position: "topRight" }); return; }
+    if (preview) URL.revokeObjectURL(preview);
+    setSource(file); setPreview(URL.createObjectURL(file)); setResults([]);
   }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (mode === "edit" && !sourceImage) {
-      notify.error({
-        key: "image-create",
-        message: "请先选择参考图片",
-        description: "上传一张原图后，Lumina 才能按描述进行编辑",
-        position: "topRight",
-      });
-      return;
-    }
-
-    notify.destroy("image-create");
-    setGenerationProgress(8);
-    setLoading(true);
-    setResults([]);
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!canSubmit) return;
+    setLoading(true); setProgress(8); setResults([]);
     try {
-      let res: Response;
-      if (mode === "edit" && sourceImage) {
-        const formData = new FormData();
-        formData.append("image", sourceImage);
-        formData.append("prompt", prompt);
-        formData.append("model", model);
-        formData.append("size", size);
-        formData.append("quality", quality);
-        formData.append("n", String(n));
-        res = await fetch("/api/images/edit", {
-          method: "POST",
-          body: formData,
-        });
-      } else {
-        res = await fetch("/api/images/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, model, size, quality, n }),
-        });
-      }
-      const data = await res.json();
-      if (!res.ok) {
-        notify.error({
-          key: "image-create",
-          message: mode === "edit" ? "图片编辑失败" : "生图失败",
-          description: data.error || "请稍后重试",
-          position: "topRight",
-        });
-        return;
-      }
-      const images = data.images || [];
-      setResults(images);
-      setRemaining(data.remainingQuota);
-      if (data.warning) {
-        notify.warning({
-          key: "image-create",
-          message: mode === "edit" ? "部分图片编辑完成" : "部分图片生成完成",
-          description: data.warning,
-          position: "topRight",
-        });
-      } else {
-        notify.success({
-          key: "image-create",
-          message: mode === "edit" ? "图片编辑完成" : "图片生成完成",
-          description: `本次共完成 ${images.length} 张图片，已保存到作品库`,
-          position: "topRight",
-        });
-      }
-      setGenerationProgress(100);
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
-    } catch (err: unknown) {
-      notify.error({
-        key: "image-create",
-        message: mode === "edit" ? "图片编辑失败" : "生图失败",
-        description: err instanceof Error ? err.message : "网络请求失败",
-        position: "topRight",
-      });
-    } finally {
-      setLoading(false);
-      setGenerationProgress(0);
-    }
+      let response: Response;
+      if (mode === "edit" && source) {
+        const body = new FormData(); body.append("image", source); body.append("prompt", prompt); body.append("model", model); body.append("size", size); body.append("quality", quality); body.append("n", String(count));
+        response = await fetch("/api/images/edit", { method: "POST", body });
+      } else response = await fetch("/api/images/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, model, size, quality, n: count }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "请求失败");
+      setResults(payload.images ?? []); setRemaining(payload.remainingQuota ?? null); setProgress(100);
+      notify.success({ key: "image-create", message: mode === "edit" ? "图片编辑完成" : "图片生成完成", description: `已保存 ${payload.images?.length ?? 0} 张作品`, position: "topRight" });
+    } catch (error) {
+      notify.error({ key: "image-create", message: mode === "edit" ? "图片编辑失败" : "图片生成失败", description: error instanceof Error ? error.message : "请稍后重试", position: "topRight" });
+    } finally { window.setTimeout(() => { setLoading(false); setProgress(0); }, 350); }
   }
 
-  return (
-    <AppShell active="generate" user={user} quota={remaining ?? undefined}>
-      <div className="lumina-grid">
-        <Card className="lumina-panel" color="default">
-          <div className="lumina-panel-heading">
-            <div>
-              <p className="lumina-kicker">LUMINA WORKSHOP</p>
-              <Title size="large" color="app-teal">
-                灵感工坊
-              </Title>
-              <p className="lumina-description">
-                {mode === "edit"
-                  ? "上传一张参考图，描述需要改变的内容。"
-                  : "描述你想象中的画面，Lumina 会将它变成图像。"}
-              </p>
-            </div>
-            <Icon name="icon-diy" size={62} bounce />
-          </div>
+  if (isPending) return <AppLoading />;
+  if (!session) return <AppLoading label="正在前往登录页…" />;
+  const user = session.user as NonNullable<typeof session>["user"] & { quota?: number; role?: string; image?: string | null };
 
-          <Divider type="dashed-brown" style={{ marginBottom: 22 }} />
-
-          <div className="lumina-mode-switch" aria-label="创作模式">
-            <Button
-              htmlType="button"
-              type={mode === "generate" ? "primary" : "default"}
-              size="small"
-              disabled={loading}
-              onClick={() => handleModeChange("generate")}
-              icon={<Icon name="icon-design" size={18} />}
-            >
-              文字生图
-            </Button>
-            <Button
-              htmlType="button"
-              type={mode === "edit" ? "primary" : "default"}
-              size="small"
-              disabled={loading}
-              onClick={() => handleModeChange("edit")}
-              icon={<Icon name="icon-camera" size={18} />}
-            >
-              图片编辑
-            </Button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="lumina-form">
-            {mode === "edit" && (
-              <div className="lumina-field">
-                <label className="lumina-field-label" htmlFor="source-image">
-                  参考图片
-                </label>
-                <div className="lumina-source-picker">
-                  <div
-                    className={`lumina-source-preview${sourcePreview ? " has-image" : ""}`}
-                  >
-                    {sourcePreview ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={sourcePreview} alt="待编辑的参考图片" />
-                    ) : (
-                      <span>
-                        <Icon name="icon-camera" size={44} bounce />
-                      </span>
-                    )}
-                  </div>
-                  <div className="lumina-source-actions">
-                    <p className="lumina-source-name">
-                      {sourceImage ? sourceImage.name : "选择一张需要编辑的图片"}
-                    </p>
-                    <span className="lumina-field-hint">
-                      支持 PNG、JPG、WebP，文件最大 25 MB。
-                    </span>
-                    <Button
-                      htmlType="button"
-                      type="default"
-                      size="small"
-                      disabled={loading}
-                      onClick={() => sourceInputRef.current?.click()}
-                    >
-                      {sourceImage ? "更换图片" : "选择图片"}
-                    </Button>
-                    <input
-                      ref={sourceInputRef}
-                      id="source-image"
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-                      hidden
-                      onChange={handleSourceImageChange}
-                    />
-                  </div>
-                </div>
+  return <AppShell active="generate" user={user} quota={remaining ?? user.quota}>
+    <div className="lumina-page-heading"><div><p className="lumina-eyebrow">CREATE</p><h1>今天，想创造什么？</h1><p>把你的想法变成独一无二的图像</p></div></div>
+    <div className="lumina-create-workspace">
+      <Card className="lumina-create-controls">
+        <CardHeader>
+          <CardTitle>创作控制台</CardTitle>
+          <CardDescription>描述画面并设置生成参数</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={mode} onValueChange={changeMode} className="mb-6"><TabsList className="grid w-full grid-cols-2 rounded-full"><TabsTrigger value="generate" className="rounded-full">文生图</TabsTrigger><TabsTrigger value="edit" className="rounded-full">图生图</TabsTrigger></TabsList></Tabs>
+          <form onSubmit={submit} className="lumina-create-form">
+            <FieldGroup>
+              {mode === "edit" && <Field><FieldLabel>参考图片</FieldLabel><div className="lumina-upload-box overflow-hidden p-4">{preview ? <img src={preview} alt="参考图预览" className="h-full max-h-40 w-full rounded-lg object-cover" /> : <ImagePlus aria-hidden="true" />}<strong>{source?.name ?? "添加参考图"}</strong><span>支持 JPG / PNG / WebP，最大 25 MB</span><input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => chooseSource(event.target.files?.[0])} /><Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>{source ? "更换图片" : "选择图片"}</Button></div></Field>}
+              <Field>
+                <FieldLabel htmlFor="prompt">{mode === "edit" ? "编辑描述" : "画面描述"}</FieldLabel>
+                <Textarea id="prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={config.promptMaxLength} rows={mode === "edit" ? 5 : 9} className="lumina-prompt-box" placeholder={mode === "edit" ? "描述需要改变的内容，同时说明要保留的主体…" : "描述你想象中的画面…"} required />
+              </Field>
+              <div className="lumina-create-settings-grid">
+                <Field><FieldLabel>模型</FieldLabel><Select value={model} onValueChange={(value) => value && changeModel(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{config.allowedModels.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
+                <Field><FieldLabel>画布</FieldLabel><Select value={size} onValueChange={(value) => value && setSize(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{sizeOptions.map((item) => <SelectItem key={item} value={item}>{allSizes.find((option) => option.value === item)?.label ?? item}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
+                <Field><FieldLabel>质量</FieldLabel><Select value={quality} onValueChange={(value) => value && setQuality(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{config.allowedQualities.map((item) => <SelectItem key={item} value={item}>{allQualities.find((option) => option.value === item)?.label ?? item}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
+                <Field><FieldLabel>数量</FieldLabel><Select value={String(count)} onValueChange={(value) => value && setCount(Number(value))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{Array.from({ length: config.maxImagesPerRequest }, (_, index) => <SelectItem key={index} value={String(index + 1)}>{index + 1} 张</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
               </div>
-            )}
-
-            <div className="lumina-field">
-              <label className="lumina-field-label" htmlFor="prompt">
-                {mode === "edit" ? "编辑描述" : "画面描述"}
-              </label>
-              <textarea
-                id="prompt"
-                required
-                maxLength={config.promptMaxLength}
-                rows={5}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="lumina-textarea"
-                placeholder={
-                  mode === "edit"
-                    ? "例如：保留主体和构图，将背景改成雨后的森林，整体变为水彩插画风格…"
-                    : "例如：雨后的森林小屋，窗户透出暖光，水彩插画风格…"
-                }
-              />
-              <span className="lumina-field-hint">
-                {mode === "edit"
-                  ? "说明需要保留和修改的部分，结果会更准确。最多"
-                  : "加上光线、构图和艺术风格，通常会得到更丰富的结果。最多"}
-                {config.promptMaxLength} 个字符。
-              </span>
-            </div>
-
-            <div className="lumina-options-grid">
-              <div className="lumina-field lumina-select-wrap">
-                <label className="lumina-field-label" id="model-label">
-                  模型
-                </label>
-                <Select
-                  value={model}
-                  onChange={handleModelChange}
-                  options={modelOptions}
-                  aria-labelledby="model-label"
-                />
-              </div>
-              <div className="lumina-field lumina-select-wrap">
-                <label className="lumina-field-label" id="size-label">
-                  画布
-                </label>
-                <Select
-                  value={size}
-                  onChange={setSize}
-                  options={sizeOptions}
-                  aria-labelledby="size-label"
-                />
-              </div>
-              <div className="lumina-field lumina-select-wrap">
-                <label className="lumina-field-label" id="quality-label">
-                  质量
-                </label>
-                <Select
-                  value={quality}
-                  onChange={setQuality}
-                  options={qualityOptions}
-                  aria-labelledby="quality-label"
-                />
-              </div>
-              <div className="lumina-field lumina-select-wrap">
-                <label className="lumina-field-label" id="count-label">
-                  数量
-                </label>
-                <Select
-                  value={String(n)}
-                  onChange={(value) => setN(Number(value))}
-                  options={countOptions}
-                  aria-labelledby="count-label"
-                />
-              </div>
-            </div>
-
-            <Button
-              htmlType="submit"
-              type="primary"
-              size="large"
-              block
-              loading={loading}
-              disabled={
-                loading || !prompt.trim() || (mode === "edit" && !sourceImage)
-              }
-              icon={
-                <Icon
-                  name={mode === "edit" ? "icon-camera" : "icon-design"}
-                  size={22}
-                />
-              }
-            >
-              {loading
-                ? mode === "edit"
-                  ? "正在编辑图像…"
-                  : "正在生成图像…"
-                : `${mode === "edit" ? "开始编辑" : "开始创作"} · 消耗 ${n} 灵点`}
-            </Button>
+            </FieldGroup>
+            <Button type="submit" size="lg" className="lumina-create-button" disabled={!canSubmit}>{loading ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : <Sparkles data-icon="inline-start" />}{loading ? "正在生成…" : `开始创作 · ${count} 灵点`}</Button>
           </form>
-        </Card>
+        </CardContent>
+      </Card>
 
-        <Card className="lumina-panel" color="default" type="dashed">
-          <div className="lumina-panel-heading">
-            <div>
-              <p className="lumina-kicker">
-                {mode === "edit" ? "LATEST EDIT" : "LATEST CREATION"}
-              </p>
-              <Title color="app-yellow">
-                {mode === "edit" ? "编辑结果" : "本次作品"}
-              </Title>
-            </div>
-            {results.length > 0 && (
-              <Tag color="app-teal" variant="soft">
-                {results.length} 张已完成
-              </Tag>
-            )}
-          </div>
-
-          {loading && (
-            <div className="lumina-result-empty">
-              <div>
-                <div className="lumina-generation-progress">
-                  <Progress
-                    percent={generationProgress}
-                    size="large"
-                    infoPosition="top"
-                    aria-label={mode === "edit" ? "图片编辑进度" : "图片生成进度"}
-                    infoFormat={(percent) => {
-                      if (percent >= 100)
-                        return mode === "edit" ? "图片编辑完成" : "图片生成完成";
-                      if (percent < 36)
-                        return mode === "edit" ? "正在上传参考图…" : "正在提交创意…";
-                      if (percent < 72)
-                        return mode === "edit" ? "正在理解编辑要求…" : "正在绘制画面…";
-                      return "正在处理高清细节…";
-                    }}
-                  />
-                </div>
-                <p className="lumina-empty-title">
-                  {mode === "edit" ? "正在重绘参考图片" : "正在绘制你的灵感"}
-                </p>
-                <p className="lumina-empty-copy">
-                  {mode === "edit" ? "编辑" : "生成"}过程可能需要一点时间，
-                  完成后作品会自动保存。
-                </p>
-              </div>
-            </div>
-          )}
-
-          {results.length === 0 && !loading && (
-            <div className="lumina-result-empty">
-              <div>
-                <span className="lumina-empty-icon">
-                  <Icon name="icon-camera" size={54} bounce />
-                </span>
-                <p className="lumina-empty-title">画布还是空白的</p>
-                <p className="lumina-empty-copy">
-                  {mode === "edit"
-                    ? "在左侧选择参考图并写下修改要求，结果会在这里出现。"
-                    : "在左侧写下第一个创意，完成后的图片会在这里出现。"}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {results.length > 0 && !loading && (
-            <div
-              className={`lumina-results-grid${results.length === 1 ? " is-single" : ""}`}
-            >
-              {results.map((img) => (
-                <Card key={img.id} className="lumina-image-card" hoverable>
-                  <a
-                    href={img.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="lumina-image-link"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={img.url}
-                      alt={mode === "edit" ? "AI 编辑作品" : "AI 生成作品"}
-                      className="lumina-image"
-                    />
-                  </a>
-                </Card>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-    </AppShell>
-  );
+      <Card className="lumina-create-canvas">
+        <CardHeader className="flex-row items-center justify-between">
+          <div><CardTitle>{loading ? "正在绘制你的灵感" : results.length ? "本次作品" : "创作画布"}</CardTitle><CardDescription>{loading ? "完成后作品会自动保存" : results.length ? `${results.length} 张作品已完成` : "生成结果会直接出现在这里"}</CardDescription></div>
+          {results.length > 0 && <Button variant="ghost" size="sm" onClick={() => setResults([])}><RefreshCw data-icon="inline-start" />清空</Button>}
+        </CardHeader>
+        <CardContent className="lumina-canvas-content">{loading ? <div className="lumina-canvas-state"><div className="grid w-full max-w-md gap-4"><span className="mx-auto grid size-14 place-items-center rounded-full bg-accent text-primary"><LoaderCircle className="size-7 animate-spin" /></span><Progress value={progress} /><span className="text-center text-sm text-muted-foreground">正在处理高清细节…</span></div></div> : results.length ? <div className="lumina-result-grid">{results.map((image) => <a key={image.id} href={image.url} target="_blank" rel="noreferrer"><img src={image.url} alt="生成结果" /></a>)}</div> : <div className="lumina-canvas-state"><span className="lumina-canvas-empty-icon"><Images /></span><div><strong>画布还是空白的</strong><p>在左侧写下第一个创意，完成后的图片会在这里出现。</p></div></div>}</CardContent>
+      </Card>
+    </div>
+  </AppShell>;
 }

@@ -1,222 +1,167 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Button,
-  Card,
-  Cursor,
-  Icon,
-  Wallet,
-} from "animal-island-ui";
-import item476 from "animal-island-ui/items/item-476.png";
-import item306 from "animal-island-ui/items/item-306.png";
+  ChevronDown,
+  CircleUserRound,
+  Gamepad2,
+  Images,
+  LayoutDashboard,
+  LogOut,
+  Sparkles,
+  WandSparkles,
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AppFooter } from "@/components/app-footer";
 import { notify } from "@/components/app-notifications";
 import { signOut } from "@/lib/auth-client";
 
-type ActivePage = "generate" | "gallery" | "rewards" | "admin";
+export type ActivePage = "generate" | "gallery" | "rewards" | "profile" | "admin";
 
 interface AppShellProps {
   active: ActivePage;
   user: {
+    id?: string;
     name?: string | null;
+    image?: string | null;
     quota?: number;
     role?: string;
   };
   quota?: number;
   children: React.ReactNode;
+  hideFooter?: boolean;
 }
 
-const rewardsNavIcon = typeof item476 === "string" ? item476 : item476.src;
-const accountIcon = typeof item306 === "string" ? item306 : item306.src;
-
 const navItems = [
-  { key: "generate", href: "/generate", label: "创作", iconName: "icon-design" },
-  { key: "gallery", href: "/gallery", label: "作品库", iconName: "icon-camera" },
-  { key: "rewards", href: "/rewards", label: "灵海", iconSrc: rewardsNavIcon },
+  { key: "generate", href: "/generate", label: "创作", icon: WandSparkles },
+  { key: "gallery", href: "/gallery", label: "作品", icon: Images },
+  { key: "rewards", href: "/rewards", label: "游戏", icon: Gamepad2 },
+  { key: "profile", href: "/profile", label: "我的", icon: CircleUserRound },
 ] as const;
 
-export function AppShell({
-  active,
-  user,
-  quota,
-  children,
-}: AppShellProps) {
+export function AppShell({ active, user, quota, children, hideFooter = false }: AppShellProps) {
   const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function closeMenu(event: MouseEvent) {
-      if (!accountMenuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-
-    document.addEventListener("mousedown", closeMenu);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", closeMenu);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, []);
+  const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
-    setMenuOpen(false);
-    notify.destroy("sign-out");
+    if (signingOut) return;
+    setSigningOut(true);
     try {
       const result = await signOut();
-      if (result.error) {
-        throw new Error(result.error.message || "退出登录失败");
-      }
-      notify.success({
-        key: "sign-out",
-        message: "已退出登录",
-        position: "topRight",
-      });
+      if (result.error) throw new Error(result.error.message || "退出登录失败");
+      notify.success({ key: "sign-out", message: "已退出登录", position: "topRight" });
       router.push("/login");
-    } catch (caught) {
+    } catch (error) {
       notify.error({
         key: "sign-out",
         message: "退出登录失败",
-        description: caught instanceof Error ? caught.message : "请稍后重试",
+        description: error instanceof Error ? error.message : "请稍后重试",
         position: "topRight",
       });
+      setSigningOut(false);
     }
   }
 
   return (
-    <Cursor>
-      <div className="lumina-page">
-        <div className="lumina-layer">
-          <header className="lumina-header-wrap">
-            <Card className="lumina-header-card">
-              <Link href="/generate" className="lumina-brand">
-                <span className="lumina-brand-mark">
-                  <span className="lumina-logo-glyph" aria-hidden="true" />
-                </span>
-                <span>Lumina</span>
+    <div className="lumina-app-shell">
+      <header className="lumina-app-header">
+        <Link href="/generate" className="lumina-brand" aria-label="Lumina 首页">
+          <span className="lumina-brand-mark" aria-hidden="true"><Sparkles /></span>
+          <span>Lumina</span>
+        </Link>
+
+        <nav className="lumina-primary-nav" aria-label="主导航">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = active === item.key;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`lumina-primary-nav-link${isActive ? " is-active" : ""}`}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <Icon aria-hidden="true" />
+                <span>{item.label}</span>
               </Link>
+            );
+          })}
+        </nav>
 
-              <nav className="lumina-nav" aria-label="主导航">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.key}
-                    href={item.href}
-                    className={`lumina-nav-link ${
-                      active === item.key ? "is-active" : ""
-                    }`}
-                  >
-                    {"iconSrc" in item ? (
-                      <Icon src={item.iconSrc} size={20} />
-                    ) : (
-                      <Icon name={item.iconName} size={20} />
-                    )}
-                    <span>{item.label}</span>
-                  </Link>
-                ))}
-              </nav>
-
-              <div className="lumina-user-actions">
-                <Link href="/rewards" className="lumina-wallet-link" aria-label="进入灵海">
-                  <Wallet value={quota ?? user.quota ?? 0} size="small" />
-                  <span className="lumina-wallet-label">灵点</span>
-                </Link>
-                <div className="lumina-account" ref={accountMenuRef}>
-                  <Button
-                    className="lumina-account-trigger"
-                    size="small"
-                    type="text"
-                    icon={<Icon src={accountIcon} size={18} />}
-                    onClick={() => setMenuOpen((open) => !open)}
-                    aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                  >
-                    {user.name || "用户"}
-                    <span className="lumina-account-chevron" aria-hidden="true">
-                      ▾
+        <div className="lumina-header-actions">
+          <Link href="/rewards" className="lumina-quota-pill" aria-label="查看灵点">
+            <span>{quota ?? user.quota ?? 0}</span>
+            <Sparkles aria-hidden="true" />
+          </Link>
+          <div>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" className="lumina-account-trigger" aria-label="打开账户菜单" />}>
+                  <Avatar className="size-9">
+                    <AvatarImage src={user.image ?? undefined} alt="" />
+                    <AvatarFallback>{(user.name || "L").slice(0, 1).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span className="hidden text-sm font-medium sm:inline">{user.name || "用户"}</span>
+                  <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="lumina-account-menu w-60">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="lumina-account-menu-label">
+                    <span className="lumina-account-menu-name">{user.name || "用户"}</span>
+                    <span className="lumina-account-menu-role">
+                      {user.role === "admin" ? "管理员账号" : "创作者账号"}
                     </span>
-                  </Button>
-
-                  {menuOpen && (
-                    <Card className="lumina-account-menu" role="menu">
-                      <div className="lumina-account-summary">
-                        <strong>{user.name || "用户"}</strong>
-                        <span>{user.role === "admin" ? "管理员账号" : "创作者账号"}</span>
-                      </div>
-
-                      {user.role === "admin" && (
-                        <Link
-                          href="/admin/users"
-                          className="lumina-account-menu-item"
-                          role="menuitem"
-                          onClick={() => setMenuOpen(false)}
-                        >
-                          <Icon name="icon-miles" size={20} />
-                          <span>管理后台</span>
-                        </Link>
-                      )}
-
-                      <button
-                        type="button"
-                        className="lumina-account-menu-item is-danger"
-                        role="menuitem"
-                        onClick={() => void handleSignOut()}
-                      >
-                        <Icon name="icon-map" size={20} />
-                        <span>退出登录</span>
-                      </button>
-                    </Card>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem className="lumina-account-menu-item" onClick={() => router.push("/profile")}><CircleUserRound data-icon="inline-start" />个人中心</DropdownMenuItem>
+                  {user.role === "admin" && (
+                    <DropdownMenuItem className="lumina-account-menu-item" onClick={() => router.push("/admin")}><LayoutDashboard data-icon="inline-start" />管理后台</DropdownMenuItem>
                   )}
-                </div>
-              </div>
-            </Card>
-          </header>
-
-          <main className="lumina-content">{children}</main>
-          <AppFooter />
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem className="lumina-account-menu-item" variant="destructive" onClick={() => void handleSignOut()} disabled={signingOut}>
+                    <LogOut data-icon="inline-start" />{signingOut ? "正在退出…" : "退出登录"}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
-    </Cursor>
+      </header>
+      <main className="lumina-app-main">{children}</main>
+      {!hideFooter && <AppFooter />}
+    </div>
   );
 }
 
 export function AppLoading({ label = "正在加载 Lumina…" }: { label?: string }) {
   return (
-    <div
-      className="lumina-loading-page"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <Card className="lumina-loading-card">
-        <div className="lumina-loading-brand">
-          <span className="lumina-loading-mark">
-            <span className="lumina-logo-glyph" aria-hidden="true" />
-          </span>
-          <div>
-            <strong>Lumina</strong>
-            <span>让灵感成为画面</span>
-          </div>
+    <div className="lumina-loading-page" role="status" aria-live="polite" aria-busy="true">
+      <div className="lumina-loading-panel">
+        <div className="lumina-loading-visual" aria-hidden="true">
+          <span className="lumina-loading-orbit" />
+          <span className="lumina-loading-mark"><Sparkles /></span>
         </div>
-
-        <div className="lumina-loading-dots" aria-hidden="true">
-          <span />
-          <span />
-          <span />
+        <div className="lumina-loading-copy">
+          <strong>{label}</strong>
+          <span aria-hidden="true">片刻之间，灵感就绪</span>
         </div>
-
-        <p className="lumina-loading-label">{label}</p>
-        <div className="lumina-loading-track" aria-hidden="true">
-          <span />
-        </div>
-      </Card>
+        <span className="lumina-loading-track" aria-hidden="true"><span /></span>
+      </div>
     </div>
   );
 }

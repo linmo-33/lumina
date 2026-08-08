@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import AdminConsole from "./admin-console";
 
 export default function AdminPage() {
-  redirect("/admin/users");
+  return <AdminConsole section="overview" initialPage={1} initialPageSize={10} />;
 }

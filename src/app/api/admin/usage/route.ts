@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, count, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, like, or, sql, type SQL } from "drizzle-orm";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { imageHistory, user } from "@/lib/schema";
@@ -23,15 +23,31 @@ export async function GET(req: NextRequest) {
       : 50;
   const status = searchParams.get("status");
   const userId = searchParams.get("userId");
+  const search = (searchParams.get("q") ?? "").trim().slice(0, 100);
   const filters: SQL[] = [];
 
   if (status === "success" || status === "failed") {
     filters.push(eq(imageHistory.status, status));
   }
   if (userId) filters.push(eq(imageHistory.userId, userId));
+  if (search) {
+    const searchPattern = `%${search}%`;
+    const searchFilter = or(
+      like(imageHistory.id, searchPattern),
+      like(user.name, searchPattern),
+      like(user.email, searchPattern),
+      like(imageHistory.model, searchPattern),
+      like(imageHistory.prompt, searchPattern),
+    );
+    if (searchFilter) filters.push(searchFilter);
+  }
   const where = filters.length > 0 ? and(...filters) : undefined;
 
-  const [records, totalRows, summaryRows] = await Promise.all([
+  const trendStart = new Date();
+  trendStart.setHours(0, 0, 0, 0);
+  trendStart.setDate(trendStart.getDate() - 6);
+
+  const [records, totalRows, summaryRows, trendRows, typeRows] = await Promise.all([
     db
       .select({
         id: imageHistory.id,
@@ -55,7 +71,11 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(imageHistory.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ value: count() }).from(imageHistory).where(where),
+    db
+      .select({ value: count() })
+      .from(imageHistory)
+      .innerJoin(user, eq(imageHistory.userId, user.id))
+      .where(where),
     db
       .select({
         total: count(),
@@ -64,6 +84,19 @@ export async function GET(req: NextRequest) {
         totalCost: sql<number>`coalesce(sum(${imageHistory.cost}), 0)`,
       })
       .from(imageHistory),
+    db
+      .select({
+        day: sql<string>`strftime('%Y-%m-%d', ${imageHistory.createdAt}, 'unixepoch', 'localtime')`,
+        total: count(),
+        cost: sql<number>`coalesce(sum(${imageHistory.cost}), 0)`,
+      })
+      .from(imageHistory)
+      .where(gte(imageHistory.createdAt, trendStart))
+      .groupBy(sql`strftime('%Y-%m-%d', ${imageHistory.createdAt}, 'unixepoch', 'localtime')`),
+    db
+      .select({ type: imageHistory.type, total: count() })
+      .from(imageHistory)
+      .groupBy(imageHistory.type),
   ]);
 
   const summary = summaryRows[0] || {
@@ -78,6 +111,14 @@ export async function GET(req: NextRequest) {
     failed: Number(summary.failed ?? 0),
     totalCost: Number(summary.totalCost ?? 0),
   };
+  const trendMap = new Map(trendRows.map((row) => [row.day, row]));
+  const trend = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(trendStart);
+    date.setDate(date.getDate() + index);
+    const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const row = trendMap.get(day);
+    return { day, total: Number(row?.total ?? 0), cost: Number(row?.cost ?? 0) };
+  });
 
   return NextResponse.json({
     success: true,
@@ -85,6 +126,8 @@ export async function GET(req: NextRequest) {
     pageSize,
     total: totalRows[0]?.value ?? 0,
     summary: normalizedSummary,
+    trend,
+    typeDistribution: typeRows.map((row) => ({ type: row.type, total: Number(row.total) })),
     data: records.map((record) => ({
       ...record,
       imageUrl: record.imagePath ? `/${record.imagePath}` : null,

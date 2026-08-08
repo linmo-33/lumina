@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "better-auth/crypto";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-auth";
 import { writeAdminAudit } from "@/lib/admin-audit";
@@ -116,8 +116,17 @@ export async function GET(req: NextRequest) {
     Number.isSafeInteger(requestedPageSize) && requestedPageSize > 0
       ? Math.min(100, requestedPageSize)
       : 10;
+  const search = (searchParams.get("q") ?? "").trim().slice(0, 100);
+  const searchPattern = `%${search}%`;
+  const where = search
+    ? or(
+        like(user.name, searchPattern),
+        like(user.email, searchPattern),
+        like(user.id, searchPattern),
+      )
+    : undefined;
 
-  const [users, summaryRows] = await Promise.all([
+  const [users, totalRows, summaryRows] = await Promise.all([
     db
       .select({
         id: user.id,
@@ -130,9 +139,11 @@ export async function GET(req: NextRequest) {
         createdAt: user.createdAt,
       })
       .from(user)
+      .where(where)
       .orderBy(desc(user.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
+    db.select({ value: count() }).from(user).where(where),
     db
       .select({
         total: count(),
@@ -153,7 +164,7 @@ export async function GET(req: NextRequest) {
     success: true,
     page,
     pageSize,
-    total: normalizedSummary.total,
+    total: Number(totalRows[0]?.value ?? 0),
     summary: normalizedSummary,
     data: users,
   });

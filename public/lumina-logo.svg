@@ -1,30 +1,22 @@
-<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  fill="none"
+  role="img"
+  aria-label="Lumina"
+>
   <path
-    d="M42 8H86C106.987 8 120 21.0132 120 42V86C120 106.987 106.987 120 86 120H42C21.0132 120 8 106.987 8 86V42C8 21.0132 21.0132 8 42 8Z"
-    fill="#FFFDF7"
+    d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594Z"
+    fill="#6D55F6"
+    stroke="#6D55F6"
+    stroke-width="1.2"
+    stroke-linejoin="round"
   />
   <path
-    d="M43 14H85C103.778 14 114 24.2223 114 43V85C114 103.778 103.778 114 85 114H43C24.2223 114 14 103.778 14 85V43C14 24.2223 24.2223 14 43 14Z"
-    fill="#20B8AD"
-    stroke="#554C40"
-    stroke-width="6"
-  />
-  <path
-    d="M42 38V82C42 88.6274 47.3726 94 54 94H88"
-    stroke="#FFFDF7"
-    stroke-width="14"
+    d="M20 2v4M22 4h-4"
+    stroke="#6D55F6"
+    stroke-width="1.8"
     stroke-linecap="round"
-    stroke-linejoin="round"
   />
-  <circle cx="84" cy="42" r="15" fill="#F4C95D" stroke="#FFFDF7" stroke-width="5" />
-  <path d="M84 20V14" stroke="#F4C95D" stroke-width="6" stroke-linecap="round" />
-  <path d="M106 42H112" stroke="#F4C95D" stroke-width="6" stroke-linecap="round" />
-  <path d="M99.5563 26.4437L103.799 22.201" stroke="#F4C95D" stroke-width="6" stroke-linecap="round" />
-  <path
-    d="M92 69L95.5571 76.4429L103 80L95.5571 83.5571L92 91L88.4429 83.5571L81 80L88.4429 76.4429L92 69Z"
-    fill="#F8A6B2"
-    stroke="#554C40"
-    stroke-width="3"
-    stroke-linejoin="round"
-  />
+  <circle cx="4" cy="20" r="2" fill="#6D55F6" />
 </svg>

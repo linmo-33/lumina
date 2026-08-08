@@ -1,6 +1,7 @@
 import {
   index,
   integer,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -18,7 +19,7 @@ export const user = sqliteTable("user", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   // 扩展字段
   role: text("role").notNull().default("user"), // user | admin
-  quota: integer("quota").notNull().default(10),
+  quota: real("quota").notNull().default(10),
   used: integer("used").notNull().default(0),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
 });
@@ -87,7 +88,7 @@ export const quotaLogs = sqliteTable("quota_logs", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  change: integer("change").notNull(), // +10 或 -1
+  change: real("change").notNull(), // +10、+1.5 或 -1
   reason: text("reason").notNull(), // register | generate | edit | admin_recharge | admin_deduct
   operatorId: text("operator_id"), // 管理员 id，系统操作为 null
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
@@ -128,9 +129,9 @@ export const lotteryDraws = sqliteTable(
     prizeNameSnapshot: text("prize_name_snapshot").notNull(),
     iconKeySnapshot: text("icon_key_snapshot"),
     reelIconsSnapshot: text("reel_icons_snapshot").notNull(),
-    multiplierSnapshot: integer("multiplier_snapshot").notNull(),
-    reward: integer("reward").notNull(),
-    balanceAfter: integer("balance_after").notNull(),
+    multiplierSnapshot: real("multiplier_snapshot").notNull(),
+    reward: real("reward").notNull(),
+    balanceAfter: real("balance_after").notNull(),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [

@@ -1,122 +1,178 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Button,
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
   Card,
-  Divider,
-  Icon,
-  Input,
-  Modal,
-  Switch,
-  Tag,
-  Title,
-} from "animal-island-ui";
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { notify } from "@/components/app-notifications";
 import {
-  isIntegerInRange,
-  parseNumericInput,
-  type NumericInputValue,
-} from "@/lib/numeric-input";
-import { getRewardIcon, REWARD_ICONS } from "@/lib/reward-icons";
+  LOTTERY_PROBABILITY_SCALE,
+  LOTTERY_PRIZE_DEFINITIONS,
+  getDefaultLotteryPrizes,
+  getLotteryPrizeDefinition,
+  normalizeLotteryPrizeWeights,
+} from "@/lib/lottery-prizes";
+import {
+  Info,
+  LoaderCircle,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  TriangleAlert,
+} from "lucide-react";
 
-interface DailyPolicy {
-  enabled: boolean;
-  minimum: NumericInputValue;
-  maximum: NumericInputValue;
-}
-
-interface LotteryPrize {
+interface Prize {
   id: string;
-  name: string;
   iconKey: string | null;
-  weight: NumericInputValue;
-  multiplier: NumericInputValue;
+  weight: number;
+  multiplier: number;
   enabled: boolean;
 }
 
-interface LotteryPolicy {
-  enabled: boolean;
-  minimumBet: NumericInputValue;
-  maximumBet: NumericInputValue;
-  prizes: LotteryPrize[];
+interface Strategies {
+  daily: { enabled: boolean; minimum: number; maximum: number };
+  lottery: {
+    enabled: boolean;
+    minimumBet: number;
+    maximumBet: number;
+    prizes: Prize[];
+  };
 }
 
-interface RewardStrategies {
-  daily: DailyPolicy;
-  lottery: LotteryPolicy;
+function normalizeLotteryStrategy(value: Strategies): Strategies {
+  return {
+    ...value,
+    lottery: {
+      ...value.lottery,
+      prizes: normalizeLotteryPrizeWeights(value.lottery.prizes),
+    },
+  };
 }
 
 export function RewardStrategyPanel() {
-  const [strategies, setStrategies] = useState<RewardStrategies | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [value, setValue] = useState<Strategies | null>(null);
   const [saving, setSaving] = useState<"daily" | "lottery" | null>(null);
-  const [iconPrizeIndex, setIconPrizeIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/reward-strategies")
+    const controller = new AbortController();
+    fetch("/api/admin/reward-strategies", { signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || "策略加载失败");
-        setStrategies(payload.data);
+        if (!response.ok) throw new Error(payload.error || "奖励策略加载失败");
+        setValue(normalizeLotteryStrategy(payload.data));
       })
-      .catch((caught) =>
+      .catch((error) => {
+        if (controller.signal.aborted) return;
         notify.error({
-          key: "reward-strategies-load",
-          message: "灵点策略加载失败",
-          description: caught instanceof Error ? caught.message : "请稍后重试",
+          key: "strategy",
+          message: "奖励策略加载失败",
+          description: error instanceof Error ? error.message : "请稍后重试",
           position: "topRight",
-        }),
-      )
-      .finally(() => setLoading(false));
+        });
+      });
+    return () => controller.abort();
   }, []);
 
-  async function saveStrategy(strategy: "daily" | "lottery") {
-    if (!strategies) return;
+  const enabledProbabilityUnits = useMemo(
+    () => value?.lottery.prizes.reduce(
+      (sum, prize) => sum + (prize.enabled ? prize.weight : 0),
+      0,
+    ) ?? 0,
+    [value?.lottery.prizes],
+  );
+  const probabilitiesAreValid = enabledProbabilityUnits === LOTTERY_PROBABILITY_SCALE
+    && Boolean(value?.lottery.prizes.every(
+      (prize) => Number.isInteger(prize.weight) && prize.weight >= 1,
+    ));
 
-    const hasInvalidNumber =
-      strategy === "daily"
-        ? !isIntegerInRange(strategies.daily.minimum, 1, 100) ||
-          !isIntegerInRange(strategies.daily.maximum, 1, 100)
-        : !isIntegerInRange(strategies.lottery.minimumBet, 1, 100000) ||
-          !isIntegerInRange(strategies.lottery.maximumBet, 1, 100000) ||
-          strategies.lottery.prizes.some(
-            (prize) =>
-              !isIntegerInRange(prize.weight, 1, 100000) ||
-              !isIntegerInRange(prize.multiplier, 0, 100),
-          );
+  function updatePrize(index: number, patch: Partial<Prize>) {
+    setValue((current) => {
+      if (!current) return current;
+      const prizes = current.lottery.prizes.map((prize, prizeIndex) => (
+        prizeIndex === index ? { ...prize, ...patch } : prize
+      ));
+      return { ...current, lottery: { ...current.lottery, prizes } };
+    });
+  }
 
-    if (hasInvalidNumber) {
-      notify.error({
-        key: `reward-strategies-${strategy}`,
-        message: "策略数值填写不完整",
-        description: "请填写输入框允许范围内的整数",
+  function normalizeProbabilities() {
+    setValue((current) => current ? normalizeLotteryStrategy(current) : current);
+  }
+
+  async function save(strategy: "daily" | "lottery") {
+    if (!value) return;
+    if (strategy === "lottery" && !probabilitiesAreValid) {
+      notify.warning({
+        key: "strategy",
+        message: "抽取概率合计必须为 100%",
+        description: "请调整各奖池项概率，或使用“按比例归一化”自动修正",
         position: "topRight",
       });
       return;
     }
-
     setSaving(strategy);
+    const policy = strategy === "lottery"
+      ? {
+          ...value.lottery,
+          prizes: value.lottery.prizes.map((prize) => ({
+            ...prize,
+            iconKey: getLotteryPrizeDefinition(
+              prize.iconKey,
+              prize.multiplier,
+            ).key,
+          })),
+        }
+      : value.daily;
+
     try {
       const response = await fetch("/api/admin/reward-strategies", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ strategy, policy: strategies[strategy] }),
+        body: JSON.stringify({ strategy, policy }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "策略保存失败");
-      setStrategies(payload.data);
+      if (!response.ok) throw new Error(payload.error || "保存失败");
+      setValue(normalizeLotteryStrategy(payload.data));
       notify.success({
-        key: `reward-strategies-${strategy}`,
-        message: strategy === "daily" ? "每日补给策略已保存" : "灵光机策略已保存",
-        description: "新策略已立即生效",
+        key: "strategy",
+        message: strategy === "lottery" ? "灵光机策略已保存" : "每日规则已保存",
         position: "topRight",
       });
-    } catch (caught) {
+    } catch (error) {
       notify.error({
-        key: `reward-strategies-${strategy}`,
-        message: "策略保存失败",
-        description: caught instanceof Error ? caught.message : "请稍后重试",
+        key: "strategy",
+        message: "保存失败",
+        description: error instanceof Error ? error.message : "请检查填写内容",
         position: "topRight",
       });
     } finally {
@@ -124,344 +180,289 @@ export function RewardStrategyPanel() {
     }
   }
 
-  function updatePrize(index: number, patch: Partial<LotteryPrize>) {
-    if (!strategies) return;
-    setStrategies({
-      ...strategies,
-      lottery: {
-        ...strategies.lottery,
-        prizes: strategies.lottery.prizes.map((prize, prizeIndex) =>
-          prizeIndex === index ? { ...prize, ...patch } : prize,
-        ),
-      },
-    });
-  }
-
-  function addPrize() {
-    if (!strategies || strategies.lottery.prizes.length >= 10) return;
-    setStrategies({
-      ...strategies,
-      lottery: {
-        ...strategies.lottery,
-        prizes: [
-          ...strategies.lottery.prizes,
-          {
-            id: `prize_${Date.now()}`,
-            name: "新奖项",
-            iconKey: REWARD_ICONS[0].key,
-            weight: 1,
-            multiplier: 1,
-            enabled: true,
-          },
-        ],
-      },
-    });
-  }
-
-  function removePrize(index: number) {
-    if (!strategies || strategies.lottery.prizes.length <= 2) return;
-    setStrategies({
-      ...strategies,
-      lottery: {
-        ...strategies.lottery,
-        prizes: strategies.lottery.prizes.filter((_, prizeIndex) => prizeIndex !== index),
-      },
-    });
-  }
-
-  if (loading || !strategies) {
-    return <Card className="admin-workspace-card">正在加载灵点策略…</Card>;
+  if (!value) {
+    return (
+      <Card className="grid min-h-64 place-items-center" aria-label="正在加载奖励策略">
+        <LoaderCircle className="size-7 animate-spin text-primary" />
+      </Card>
+    );
   }
 
   return (
-    <div className="reward-strategy-grid">
-      <Card className="admin-settings-card reward-strategy-card">
-        <div className="strategy-card-heading">
-          <div>
-            <p className="lumina-kicker">DAILY REWARD</p>
-            <Title color="app-teal">每日灵点补给</Title>
-          </div>
-          <Switch
-            checked={strategies.daily.enabled}
-            checkedChildren="启用"
-            unCheckedChildren="停用"
-            onChange={(enabled) =>
-              setStrategies({ ...strategies, daily: { ...strategies.daily, enabled } })
-            }
-          />
-        </div>
-        <p className="lumina-description">用户每天可以在指定范围内随机获得整数灵点。</p>
-        <Divider type="dashed-brown" />
-        <div className="strategy-number-grid">
-          <div className="lumina-field">
-            <label className="lumina-field-label" htmlFor="daily-minimum">最低获得</label>
-            <Input
-              id="daily-minimum"
-              type="number"
-              min={1}
-              max={100}
-              step={1}
-              value={strategies.daily.minimum}
-              onChange={(event) =>
-                setStrategies({
-                  ...strategies,
-                  daily: {
-                    ...strategies.daily,
-                    minimum: parseNumericInput(event.target.value),
-                  },
-                })
-              }
-              suffix="灵点"
-              shadow
-            />
-          </div>
-          <div className="lumina-field">
-            <label className="lumina-field-label" htmlFor="daily-maximum">最高获得</label>
-            <Input
-              id="daily-maximum"
-              type="number"
-              min={1}
-              max={100}
-              step={1}
-              value={strategies.daily.maximum}
-              onChange={(event) =>
-                setStrategies({
-                  ...strategies,
-                  daily: {
-                    ...strategies.daily,
-                    maximum: parseNumericInput(event.target.value),
-                  },
-                })
-              }
-              suffix="灵点"
-              shadow
-            />
-          </div>
-        </div>
-        <div className="strategy-note">
-          每日 00:00 重置，时区由部署环境中的 <code>TZ</code> 决定。上下限相同时为固定奖励。
-        </div>
-        <Button
-          type="primary"
-          size="large"
-          block
-          loading={saving === "daily"}
-          disabled={saving !== null}
-          onClick={() => void saveStrategy("daily")}
-        >
-          保存补给策略
-        </Button>
-      </Card>
+    <div className="flex flex-col gap-5">
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>每日奖励规则</CardTitle>
+            <CardDescription>配置每日登录可领取的灵点范围。</CardDescription>
+            <CardAction>
+              <Switch
+                aria-label="启用每日奖励"
+                checked={value.daily.enabled}
+                onCheckedChange={(checked) => setValue({
+                  ...value,
+                  daily: { ...value.daily, enabled: checked },
+                })}
+              />
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <FieldGroup>
+              <div className="grid grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="daily-minimum">最低奖励</FieldLabel>
+                  <Input
+                    id="daily-minimum"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={value.daily.minimum}
+                    onChange={(event) => setValue({
+                      ...value,
+                      daily: { ...value.daily, minimum: Number(event.target.value) },
+                    })}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="daily-maximum">最高奖励</FieldLabel>
+                  <Input
+                    id="daily-maximum"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={value.daily.maximum}
+                    onChange={(event) => setValue({
+                      ...value,
+                      daily: { ...value.daily, maximum: Number(event.target.value) },
+                    })}
+                  />
+                </Field>
+              </div>
+            </FieldGroup>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => void save("daily")} disabled={saving !== null}>
+              {saving === "daily"
+                ? <LoaderCircle className="animate-spin" data-icon="inline-start" />
+                : <Save data-icon="inline-start" />}
+              保存每日规则
+            </Button>
+          </CardFooter>
+        </Card>
 
-      <Card className="admin-settings-card reward-strategy-card lottery-strategy-card">
-        <div className="strategy-card-heading">
-          <div>
-            <p className="lumina-kicker">LOTTERY POLICY</p>
-            <Title color="app-yellow">灵光机策略</Title>
-          </div>
-          <Switch
-            checked={strategies.lottery.enabled}
-            checkedChildren="启用"
-            unCheckedChildren="停用"
-            onChange={(enabled) =>
-              setStrategies({
-                ...strategies,
-                lottery: { ...strategies.lottery, enabled },
-              })
-            }
-          />
-        </div>
-        <p className="lumina-description">用户可以在限制范围内决定下注灵点，奖励按照下注数量乘以奖项倍率计算。</p>
-        <Divider type="dashed-brown" />
+        <Card>
+          <CardHeader>
+            <CardTitle>灵光机规则</CardTitle>
+            <CardDescription>投入范围、抽取概率和奖励结果全部由服务端策略决定。</CardDescription>
+            <CardAction>
+              <Switch
+                aria-label="启用灵光机"
+                checked={value.lottery.enabled}
+                onCheckedChange={(checked) => setValue({
+                  ...value,
+                  lottery: { ...value.lottery, enabled: checked },
+                })}
+              />
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <FieldGroup>
+              <div className="grid grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="lottery-minimum-bet">最小投入</FieldLabel>
+                  <Input
+                    id="lottery-minimum-bet"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={value.lottery.minimumBet}
+                    onChange={(event) => setValue({
+                      ...value,
+                      lottery: { ...value.lottery, minimumBet: Number(event.target.value) },
+                    })}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="lottery-maximum-bet">最大投入</FieldLabel>
+                  <Input
+                    id="lottery-maximum-bet"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={value.lottery.maximumBet}
+                    onChange={(event) => setValue({
+                      ...value,
+                      lottery: { ...value.lottery, maximumBet: Number(event.target.value) },
+                    })}
+                  />
+                </Field>
+              </div>
+            </FieldGroup>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => void save("lottery")} disabled={saving !== null}>
+              {saving === "lottery"
+                ? <LoaderCircle className="animate-spin" data-icon="inline-start" />
+                : <Save data-icon="inline-start" />}
+              保存灵光机规则
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
 
-        <div className="strategy-number-grid lottery-bet-limits">
-          <div className="lumina-field">
-            <label className="lumina-field-label" htmlFor="lottery-minimum-bet">最低下注</label>
-            <Input
-              id="lottery-minimum-bet"
-              type="number"
-              min={1}
-              max={100000}
-              step={1}
-              value={strategies.lottery.minimumBet}
-              suffix="灵点"
-              shadow
-              onChange={(event) =>
-                setStrategies({
-                  ...strategies,
-                  lottery: {
-                    ...strategies.lottery,
-                    minimumBet: parseNumericInput(event.target.value),
-                  },
-                })
-              }
-            />
-          </div>
-          <div className="lumina-field">
-            <label className="lumina-field-label" htmlFor="lottery-maximum-bet">最高下注</label>
-            <Input
-              id="lottery-maximum-bet"
-              type="number"
-              min={1}
-              max={100000}
-              step={1}
-              value={strategies.lottery.maximumBet}
-              suffix="灵点"
-              shadow
-              onChange={(event) =>
-                setStrategies({
-                  ...strategies,
-                  lottery: {
-                    ...strategies.lottery,
-                    maximumBet: parseNumericInput(event.target.value),
-                  },
-                })
-              }
-            />
-          </div>
-        </div>
-
-        <div className="lottery-strategy-toolbar">
-          <Tag color="app-yellow" variant="solid">奖励 = 下注 × 倍率</Tag>
-          <Button
-            size="small"
-            disabled={strategies.lottery.prizes.length >= 10}
-            onClick={addPrize}
+      <Card>
+        <CardHeader>
+          <CardTitle>灵光机奖池</CardTitle>
+          <CardDescription>
+            直接配置抽取概率；倍率与最终灵点均支持最多两位小数。
+          </CardDescription>
+          <CardAction>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setValue({
+                ...value,
+                lottery: { ...value.lottery, prizes: getDefaultLotteryPrizes() },
+              })}
+              disabled={saving !== null}
+            >
+              <RotateCcw data-icon="inline-start" />
+              载入九档默认值
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Alert
+            variant={probabilitiesAreValid ? "default" : "destructive"}
+            className="pr-32"
           >
-            新增奖项
-          </Button>
-        </div>
+            {probabilitiesAreValid ? <Info /> : <TriangleAlert />}
+            <AlertTitle>
+              当前合计 {(enabledProbabilityUnits / 100).toFixed(2)}%
+            </AlertTitle>
+            <AlertDescription>
+              已启用奖池项必须合计 100.00%；停用项不参与抽取。
+            </AlertDescription>
+            <AlertAction>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={normalizeProbabilities}
+                disabled={saving !== null}
+              >
+                <RefreshCw data-icon="inline-start" />
+                按比例归一化
+              </Button>
+            </AlertAction>
+          </Alert>
 
-        <div className="strategy-prize-list">
-          {strategies.lottery.prizes.map((prize, index) => {
-            const icon = getRewardIcon(prize.iconKey);
-            return (
-              <div className="strategy-prize-row" key={prize.id}>
-                <button
-                  type="button"
-                  className="strategy-icon-trigger"
-                  disabled={prize.multiplier === 0}
-                  onClick={() => setIconPrizeIndex(index)}
-                  aria-label={`选择 ${prize.name} 的图标`}
-                >
-                  {prize.multiplier === 0 ? <span>混合</span> : <Icon src={icon.src} size={42} />}
-                </button>
-                <div className="strategy-prize-content">
-                  <div className="strategy-prize-topline">
-                    <Input
-                      size="small"
-                      value={prize.name}
-                      maxLength={20}
-                      aria-label="奖项名称"
-                      onChange={(event) => updatePrize(index, { name: event.target.value })}
+          <div className="flex flex-col gap-3">
+            {value.lottery.prizes.map((prize, index) => {
+              const definition = getLotteryPrizeDefinition(
+                prize.iconKey,
+                prize.multiplier,
+              );
+              const probability = prize.enabled ? prize.weight / 100 : 0;
+              const probabilityIsInvalid = prize.enabled && prize.weight < 1;
+              return (
+                <div className="admin-prize-row" key={prize.id}>
+                  <div className="admin-prize-art">
+                    <Image
+                      src={definition.image}
+                      alt={definition.assetName}
+                      width={72}
+                      height={72}
                     />
-                    <div className="strategy-prize-actions">
-                      <Switch
-                        size="small"
-                        checked={prize.enabled}
-                        checkedChildren="开"
-                        unCheckedChildren="关"
-                        onChange={(enabled) => updatePrize(index, { enabled })}
-                      />
-                      <Button
-                        size="small"
-                        danger
-                        disabled={strategies.lottery.prizes.length <= 2}
-                        onClick={() => removePrize(index)}
-                      >
-                        移除
-                      </Button>
-                    </div>
+                    <span>{probability.toFixed(2)}%</span>
                   </div>
-                  <div className="strategy-prize-params">
+
+                  <Field
+                    data-disabled={!prize.enabled}
+                    data-invalid={probabilityIsInvalid}
+                  >
+                    <FieldLabel htmlFor={`prize-weight-${prize.id}`}>抽取概率（%）</FieldLabel>
                     <Input
-                      size="small"
+                      id={`prize-weight-${prize.id}`}
                       type="number"
-                      min={1}
-                      max={100000}
-                      value={prize.weight}
-                      aria-label={`${prize.name}的权重`}
-                      prefix="权重"
-                      onChange={(event) =>
-                        updatePrize(index, {
-                          weight: parseNumericInput(event.target.value),
-                        })
-                      }
+                      min={0.01}
+                      max={100}
+                      step={0.01}
+                      inputMode="decimal"
+                      value={probability}
+                      disabled={!prize.enabled}
+                      aria-invalid={probabilityIsInvalid}
+                      onChange={(event) => updatePrize(index, {
+                        weight: Math.round(Number(event.target.value) * 100),
+                      })}
                     />
+                    <FieldDescription>
+                      {prize.enabled
+                        ? `本项占全部抽取结果的 ${probability.toFixed(2)}%`
+                        : "停用后概率为 0%，不参与抽取"}
+                    </FieldDescription>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor={`prize-multiplier-${prize.id}`}>奖励倍率</FieldLabel>
                     <Input
-                      size="small"
+                      id={`prize-multiplier-${prize.id}`}
                       type="number"
                       min={0}
                       max={100}
+                      step={0.1}
+                      inputMode="decimal"
                       value={prize.multiplier}
-                      aria-label={`${prize.name}的倍率`}
-                      suffix="倍"
-                      onChange={(event) => {
-                        const multiplier = parseNumericInput(event.target.value);
-                        updatePrize(index, {
-                          multiplier,
-                          iconKey:
-                            multiplier === ""
-                              ? prize.iconKey
-                              : multiplier > 0
-                                ? prize.iconKey ?? REWARD_ICONS[0].key
-                                : null,
-                        });
-                      }}
+                      onChange={(event) => updatePrize(index, { multiplier: Number(event.target.value) })}
                     />
-                    <div className="strategy-prize-reward">
-                      <span>奖励规则</span>
-                      <strong>{prize.multiplier === "" ? "—" : prize.multiplier} × 下注</strong>
-                    </div>
-                  </div>
+                    <FieldDescription>投入 1 灵点可获得 {prize.multiplier || 0} 灵点</FieldDescription>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>奖品素材</FieldLabel>
+                    <Select
+                      value={definition.key}
+                      onValueChange={(iconKey) => updatePrize(index, { iconKey })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>{definition.assetName}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {LOTTERY_PRIZE_DEFINITIONS.map((option) => (
+                            <SelectItem key={option.key} value={option.key}>
+                              {option.assetName}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  <Field orientation="horizontal" className="admin-prize-switch">
+                    <FieldLabel htmlFor={`prize-enabled-${prize.id}`}>启用</FieldLabel>
+                    <Switch
+                      id={`prize-enabled-${prize.id}`}
+                      checked={prize.enabled}
+                      onCheckedChange={(enabled) => updatePrize(index, {
+                        enabled,
+                        weight: Math.max(1, prize.weight),
+                      })}
+                    />
+                  </Field>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <Button
-          type="primary"
-          size="large"
-          block
-          loading={saving === "lottery"}
-          disabled={saving !== null}
-          onClick={() => void saveStrategy("lottery")}
-        >
-          保存灵光机策略
-        </Button>
+              );
+            })}
+          </div>
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button onClick={() => void save("lottery")} disabled={saving !== null}>
+            {saving === "lottery"
+              ? <LoaderCircle className="animate-spin" data-icon="inline-start" />
+              : <Save data-icon="inline-start" />}
+            保存奖池策略
+          </Button>
+        </CardFooter>
       </Card>
-
-      <Modal
-        open={iconPrizeIndex !== null}
-        title="选择奖项图标"
-        width={520}
-        footer={null}
-        typewriter={false}
-        onClose={() => setIconPrizeIndex(null)}
-      >
-        <div className="reward-icon-picker">
-          {REWARD_ICONS.map((icon) => (
-            <button
-              type="button"
-              key={icon.key}
-              className={
-                iconPrizeIndex !== null &&
-                strategies.lottery.prizes[iconPrizeIndex]?.iconKey === icon.key
-                  ? "is-selected"
-                  : ""
-              }
-              onClick={() => {
-                if (iconPrizeIndex !== null) updatePrize(iconPrizeIndex, { iconKey: icon.key });
-                setIconPrizeIndex(null);
-              }}
-            >
-              <Icon src={icon.src} size={52} />
-              <span>{icon.label}</span>
-            </button>
-          ))}
-        </div>
-      </Modal>
     </div>
   );
 }

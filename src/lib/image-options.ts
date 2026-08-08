@@ -26,6 +26,13 @@ export const CHATGPT2API_QUALITIES = [
   "high",
 ] as const;
 
+export const CHATGPT2API_QUALITY_OPTIONS = [
+  { value: "auto", label: "自动" },
+  { value: "low", label: "快速" },
+  { value: "medium", label: "标准" },
+  { value: "high", label: "高清" },
+] as const;
+
 export const CHATGPT2API_MAX_IMAGES_PER_CALL = 4;
 export const CHATGPT2API_PAGE_MAX_IMAGES = 10;
 

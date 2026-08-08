@@ -22,7 +22,7 @@ Lumina 是一个自托管 AI 图像生成平台，通过兼容 OpenAI Images API
 ## 技术栈
 
 - Next.js 16 App Router、React 18、TypeScript
-- `animal-island-ui`、Tailwind CSS 4
+- shadcn/ui、Base UI、Tailwind CSS 4
 - Better Auth
 - Resend
 - Drizzle ORM、better-sqlite3
@@ -225,6 +225,4 @@ docker-compose.yml          Compose 部署配置
 
 ## 许可证
 
-Lumina 项目代码采用 [MIT License](./LICENSE)。
-
-界面依赖 `animal-island-ui`，该组件库采用 CC BY-NC 4.0，禁止商业用途。部署或分发前请分别确认项目代码及第三方依赖的许可条件。
+Lumina 项目代码采用 [MIT License](./LICENSE)。部署或分发前请同时确认所使用第三方依赖的许可条件。

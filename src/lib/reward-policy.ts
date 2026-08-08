@@ -1,8 +1,14 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { systemSettings } from "@/lib/schema";
+import {
+  LOTTERY_PRIZE_KEYS,
+  getDefaultLotteryPrizes,
+  getLotteryPrizeDefinition,
+  type LotteryPrizeKey,
+} from "@/lib/lottery-prizes";
 
-export const SLOT_ICON_KEYS = [
+const LEGACY_SLOT_ICON_KEYS = [
   "item-001",
   "item-020",
   "item-200",
@@ -17,9 +23,17 @@ export const SLOT_ICON_KEYS = [
   "item-476",
 ] as const;
 
-export type SlotIconKey = (typeof SLOT_ICON_KEYS)[number];
+export const SLOT_ICON_KEYS = LOTTERY_PRIZE_KEYS;
+export type SlotIconKey = LotteryPrizeKey;
 
-const slotIconKeySchema = z.enum(SLOT_ICON_KEYS);
+const policyIconKeySchema = z.enum([
+  ...LOTTERY_PRIZE_KEYS,
+  ...LEGACY_SLOT_ICON_KEYS,
+]);
+
+function hasAtMostTwoDecimalPlaces(value: number) {
+  return Math.abs(value * 100 - Math.round(value * 100)) < 1e-8;
+}
 
 export const dailyRewardPolicySchema = z
   .object({
@@ -34,10 +48,13 @@ export const dailyRewardPolicySchema = z
 
 export const lotteryPrizeSchema = z.object({
   id: z.string().trim().regex(/^[a-z0-9_-]{1,32}$/),
-  name: z.string().trim().min(1).max(20),
-  iconKey: slotIconKeySchema.nullable(),
+  iconKey: policyIconKeySchema.nullable(),
   weight: z.number().int().min(1).max(100000),
-  multiplier: z.number().int().min(0).max(100),
+  multiplier: z
+    .number()
+    .min(0)
+    .max(100)
+    .refine(hasAtMostTwoDecimalPlaces, "倍率最多支持两位小数"),
   enabled: z.boolean(),
 });
 
@@ -53,7 +70,7 @@ export const lotteryPolicySchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["maximumBet"],
-        message: "最高下注不能低于最低下注",
+        message: "最大投入不能低于最小投入",
       });
     }
     const ids = new Set<string>();
@@ -70,7 +87,7 @@ export const lotteryPolicySchema = z
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["prizes", index, "iconKey"],
-          message: "中奖奖项必须选择图标",
+          message: "奖励结果必须选择素材",
         });
       }
     });
@@ -87,14 +104,14 @@ export const lotteryPolicySchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["prizes"],
-        message: "至少启用一个未中奖奖项",
+        message: "至少启用一个 0 倍结果",
       });
     }
     if (!enabled.some((prize) => prize.multiplier > 0)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["prizes"],
-        message: "至少启用一个中奖奖项",
+        message: "至少启用一个倍率大于 0 的奖励结果",
       });
     }
   });
@@ -112,14 +129,8 @@ export const DEFAULT_DAILY_REWARD_POLICY: DailyRewardPolicy = {
 export const DEFAULT_LOTTERY_POLICY: LotteryPolicy = {
   enabled: true,
   minimumBet: 1,
-  maximumBet: 100,
-  prizes: [
-    { id: "none", name: "未中奖", iconKey: null, weight: 55, multiplier: 0, enabled: true },
-    { id: "return", name: "灵点返还", iconKey: "item-020", weight: 28, multiplier: 1, enabled: true },
-    { id: "flash", name: "灵光闪现", iconKey: "item-200", weight: 12, multiplier: 2, enabled: true },
-    { id: "bloom", name: "灵感绽放", iconKey: "item-371", weight: 4, multiplier: 3, enabled: true },
-    { id: "miracle", name: "灵感奇迹", iconKey: "item-476", weight: 1, multiplier: 10, enabled: true },
-  ],
+  maximumBet: 50,
+  prizes: getDefaultLotteryPrizes(),
 };
 
 function parsePolicy<T>(raw: string | undefined, schema: z.ZodType<T>, fallback: T): T {
@@ -146,7 +157,11 @@ function parseLotteryPolicy(raw: string | undefined): LotteryPolicy {
           }
         : value;
     const parsed = lotteryPolicySchema.safeParse(candidate);
-    return parsed.success ? parsed.data : DEFAULT_LOTTERY_POLICY;
+    if (!parsed.success) return DEFAULT_LOTTERY_POLICY;
+    const usesLegacyArtwork = parsed.data.prizes.some(
+      (prize) => !prize.iconKey || prize.iconKey.startsWith("item-"),
+    );
+    return usesLegacyArtwork ? DEFAULT_LOTTERY_POLICY : parsed.data;
   } catch {
     return DEFAULT_LOTTERY_POLICY;
   }
@@ -187,10 +202,17 @@ export function getRewardDate(now = new Date()) {
 }
 
 export function getPublicLotteryPrizes(policy: LotteryPolicy) {
-  return policy.prizes.filter((prize) => prize.enabled).map((prize) => ({
-    id: prize.id,
-    name: prize.name,
-    iconKey: prize.iconKey,
-    multiplier: prize.multiplier,
-  }));
+  return policy.prizes.filter((prize) => prize.enabled).map((prize) => {
+    const definition = getLotteryPrizeDefinition(
+      prize.iconKey,
+      prize.multiplier,
+    );
+    return {
+      id: prize.id,
+      iconKey: definition.key,
+      image: definition.image,
+      effect: definition.effect,
+      multiplier: prize.multiplier,
+    };
+  });
 }
