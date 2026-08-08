@@ -284,19 +284,20 @@ export function runDatabaseMigrations(sqlite: Database.Database) {
     );
   `);
 
-  const appliedRows = sqlite
-    .prepare("SELECT id FROM _lumina_migrations")
-    .all() as Array<{ id: number }>;
-  const applied = new Set(appliedRows.map((row) => row.id));
   const insertMigration = sqlite.prepare(
-    "INSERT INTO _lumina_migrations (id, name, applied_at) VALUES (?, ?, ?)",
+    "INSERT OR IGNORE INTO _lumina_migrations (id, name, applied_at) VALUES (?, ?, ?)",
   );
 
   const migrate = sqlite.transaction(() => {
     for (const migration of migrations) {
-      if (applied.has(migration.id)) continue;
+      const result = insertMigration.run(
+        migration.id,
+        migration.name,
+        Date.now(),
+      );
+      if (result.changes === 0) continue;
+
       sqlite.exec(migration.sql);
-      insertMigration.run(migration.id, migration.name, Date.now());
     }
   });
 
