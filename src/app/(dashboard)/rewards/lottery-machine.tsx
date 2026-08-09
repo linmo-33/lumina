@@ -31,7 +31,6 @@ import {
   LoaderCircle,
   Minus,
   Plus,
-  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
@@ -76,7 +75,7 @@ type SpinPhase =
 interface LotteryMachineProps {
   balance: number;
   policy: PublicLotteryPolicy;
-  headerAside?: ReactNode;
+  dailyReward?: ReactNode;
   onBalanceChange: (balance: number) => void;
   onSettled: () => Promise<void>;
 }
@@ -211,7 +210,7 @@ function WinEffectLayer({
 export function LotteryMachine({
   balance,
   policy,
-  headerAside,
+  dailyReward,
   onBalanceChange,
   onSettled,
 }: LotteryMachineProps) {
@@ -266,7 +265,11 @@ export function LotteryMachine({
         ? `投入 ${formatPoints(result.betAmount)} 灵点，获得 ${formatPoints(result.rewardAmount)} 灵点 · ${formatPoints(result.multiplier)} 倍`
         : "本次未获得奖励，可以再次抽取",
     };
-    return { badge: "等待抽取", title: "设置投入灵点", copy: "确认投入后开始抽取" };
+    return {
+      badge: "等待抽取",
+      title: "抽取结果由服务端生成",
+      copy: "转轮动画仅用于展示，不影响最终结果",
+    };
   }, [phase, policy.enabled, result]);
 
   useEffect(() => {
@@ -440,11 +443,11 @@ export function LotteryMachine({
       <header className="orchard-lottery-header">
         <div className="orchard-title-lockup">
           <span className="orchard-title-icon"><Gamepad2 /></span>
-          <h1 id="lottery-title">灵光机</h1>
+          <div className="orchard-title-copy">
+            <h1 id="lottery-title">灵光机</h1>
+            <p>三列图案一致时获得对应倍率</p>
+          </div>
         </div>
-        {headerAside ? (
-          <div className="orchard-header-aside">{headerAside}</div>
-        ) : null}
       </header>
 
       <div className="orchard-lottery-main">
@@ -455,7 +458,7 @@ export function LotteryMachine({
           aria-busy={busy}
         >
           <div className="orchard-stage-head">
-            <div><strong>抽取转轮</strong><span>三列图案一致时获得对应倍率</span></div>
+            <div><strong>抽取转轮</strong></div>
             <Badge variant="secondary">{status.badge}</Badge>
           </div>
           <div className="orchard-reel-frame">
@@ -485,6 +488,10 @@ export function LotteryMachine({
         </div>
 
         <div className="orchard-controls" aria-disabled={busy}>
+          {dailyReward ? (
+            <div className="orchard-controls-daily">{dailyReward}</div>
+          ) : null}
+
           <Field data-disabled={busy || !policy.enabled}>
             <FieldLabel htmlFor="lottery-bet">本次投入</FieldLabel>
             <div className="orchard-stepper">
@@ -563,7 +570,6 @@ export function LotteryMachine({
                   : "请输入允许范围内的整数灵点"}
             </p>
           ) : null}
-          <p className="orchard-server-note"><ShieldCheck />抽取结果由服务端生成，转轮动画不影响结果</p>
         </div>
       </div>
 

@@ -1,14 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { type ComponentProps, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   AlertAction,
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { NumericInput } from "@/components/numeric-input";
 import {
   Card,
   CardAction,
@@ -24,7 +26,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ import {
   normalizeLotteryPrizeWeights,
 } from "@/lib/lottery-prizes";
 import {
+  Gauge,
   Info,
   LoaderCircle,
   RefreshCw,
@@ -67,6 +69,61 @@ interface Strategies {
     maximumBet: number;
     prizes: Prize[];
   };
+}
+
+type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
+
+interface LotteryMetrics {
+  rtp: number;
+  expectedNetPer100: number;
+  lossRate: number;
+  breakEvenRate: number;
+  profitRate: number;
+  hasEnabledPrizes: boolean;
+}
+
+function calculateLotteryMetrics(prizes: Prize[]): LotteryMetrics {
+  const enabledPrizes = prizes.filter((prize) => prize.enabled);
+  const totalWeight = enabledPrizes.reduce((sum, prize) => sum + prize.weight, 0);
+
+  if (totalWeight <= 0) {
+    return {
+      rtp: 0,
+      expectedNetPer100: 0,
+      lossRate: 0,
+      breakEvenRate: 0,
+      profitRate: 0,
+      hasEnabledPrizes: false,
+    };
+  }
+
+  const weightedReturn = enabledPrizes.reduce(
+    (sum, prize) => sum + prize.weight * prize.multiplier,
+    0,
+  );
+  const rateFor = (predicate: (prize: Prize) => boolean) => (
+    enabledPrizes.reduce(
+      (sum, prize) => sum + (predicate(prize) ? prize.weight : 0),
+      0,
+    ) / totalWeight * 100
+  );
+  const rtp = weightedReturn / totalWeight * 100;
+
+  return {
+    rtp,
+    expectedNetPer100: rtp - 100,
+    lossRate: rateFor((prize) => prize.multiplier < 1),
+    breakEvenRate: rateFor((prize) => prize.multiplier === 1),
+    profitRate: rateFor((prize) => prize.multiplier > 1),
+    hasEnabledPrizes: true,
+  };
+}
+
+function getRtpStatus(rtp: number): { label: string; variant: BadgeVariant } {
+  if (rtp < 85) return { label: "回收偏强", variant: "warning" };
+  if (rtp <= 92) return { label: "平衡区间", variant: "success" };
+  if (rtp <= 100) return { label: "返还偏高", variant: "info" };
+  return { label: "长期净增", variant: "destructive" };
 }
 
 function normalizeLotteryStrategy(value: Strategies): Strategies {
@@ -110,6 +167,11 @@ export function RewardStrategyPanel() {
     ) ?? 0,
     [value?.lottery.prizes],
   );
+  const lotteryMetrics = useMemo(
+    () => calculateLotteryMetrics(value?.lottery.prizes ?? []),
+    [value?.lottery.prizes],
+  );
+  const rtpStatus = getRtpStatus(lotteryMetrics.rtp);
   const probabilitiesAreValid = enabledProbabilityUnits === LOTTERY_PROBABILITY_SCALE
     && Boolean(value?.lottery.prizes.every(
       (prize) => Number.isInteger(prize.weight) && prize.weight >= 1,
@@ -189,7 +251,7 @@ export function RewardStrategyPanel() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="admin-strategy-panel flex flex-col gap-5">
       <div className="grid gap-5 xl:grid-cols-2">
         <Card>
           <CardHeader>
@@ -211,29 +273,27 @@ export function RewardStrategyPanel() {
               <div className="grid grid-cols-2 gap-4">
                 <Field>
                   <FieldLabel htmlFor="daily-minimum">最低奖励</FieldLabel>
-                  <Input
+                  <NumericInput
                     id="daily-minimum"
-                    type="number"
                     min={1}
                     step={1}
                     value={value.daily.minimum}
-                    onChange={(event) => setValue({
+                    onValueChange={(minimum) => setValue({
                       ...value,
-                      daily: { ...value.daily, minimum: Number(event.target.value) },
+                      daily: { ...value.daily, minimum },
                     })}
                   />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="daily-maximum">最高奖励</FieldLabel>
-                  <Input
+                  <NumericInput
                     id="daily-maximum"
-                    type="number"
                     min={1}
                     step={1}
                     value={value.daily.maximum}
-                    onChange={(event) => setValue({
+                    onValueChange={(maximum) => setValue({
                       ...value,
-                      daily: { ...value.daily, maximum: Number(event.target.value) },
+                      daily: { ...value.daily, maximum },
                     })}
                   />
                 </Field>
@@ -270,29 +330,27 @@ export function RewardStrategyPanel() {
               <div className="grid grid-cols-2 gap-4">
                 <Field>
                   <FieldLabel htmlFor="lottery-minimum-bet">最小投入</FieldLabel>
-                  <Input
+                  <NumericInput
                     id="lottery-minimum-bet"
-                    type="number"
                     min={1}
                     step={1}
                     value={value.lottery.minimumBet}
-                    onChange={(event) => setValue({
+                    onValueChange={(minimumBet) => setValue({
                       ...value,
-                      lottery: { ...value.lottery, minimumBet: Number(event.target.value) },
+                      lottery: { ...value.lottery, minimumBet },
                     })}
                   />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="lottery-maximum-bet">最大投入</FieldLabel>
-                  <Input
+                  <NumericInput
                     id="lottery-maximum-bet"
-                    type="number"
                     min={1}
                     step={1}
                     value={value.lottery.maximumBet}
-                    onChange={(event) => setValue({
+                    onValueChange={(maximumBet) => setValue({
                       ...value,
-                      lottery: { ...value.lottery, maximumBet: Number(event.target.value) },
+                      lottery: { ...value.lottery, maximumBet },
                     })}
                   />
                 </Field>
@@ -356,6 +414,57 @@ export function RewardStrategyPanel() {
             </AlertAction>
           </Alert>
 
+          <Alert className="border-info/20 bg-info/5 px-4 py-3">
+            <Gauge className="text-info" />
+            <AlertTitle className="flex flex-wrap items-center gap-2">
+              RTP 策略测算
+              <Badge variant={lotteryMetrics.hasEnabledPrizes ? rtpStatus.variant : "secondary"}>
+                {lotteryMetrics.hasEnabledPrizes ? rtpStatus.label : "无有效奖项"}
+              </Badge>
+              {!value.lottery.enabled && <Badge variant="secondary">策略已停用</Badge>}
+            </AlertTitle>
+            <AlertDescription className="mt-2 text-left">
+              {lotteryMetrics.hasEnabledPrizes ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-lg border bg-background/70 p-3">
+                      <span className="text-xs text-muted-foreground">理论 RTP</span>
+                      <strong className="mt-1 block text-xl font-semibold tabular-nums text-foreground">
+                        {lotteryMetrics.rtp.toFixed(2)}%
+                      </strong>
+                    </div>
+                    <div className="rounded-lg border bg-background/70 p-3">
+                      <span className="text-xs text-muted-foreground">每投入 100 灵点预计返还</span>
+                      <strong className="mt-1 block text-xl font-semibold tabular-nums text-foreground">
+                        {lotteryMetrics.rtp.toFixed(2)} 灵点
+                      </strong>
+                    </div>
+                    <div className="rounded-lg border bg-background/70 p-3">
+                      <span className="text-xs text-muted-foreground">玩家长期净变化 / 100</span>
+                      <strong className="mt-1 block text-xl font-semibold tabular-nums text-foreground">
+                        {lotteryMetrics.expectedNetPer100 > 0 ? "+" : ""}
+                        {lotteryMetrics.expectedNetPer100.toFixed(2)} 灵点
+                      </strong>
+                    </div>
+                    <div className="rounded-lg border bg-background/70 p-3">
+                      <span className="text-xs text-muted-foreground">结果概率</span>
+                      <div className="mt-2 flex flex-wrap gap-1.5 tabular-nums">
+                        <Badge variant="warning">亏损 {lotteryMetrics.lossRate.toFixed(2)}%</Badge>
+                        <Badge variant="secondary">保本 {lotteryMetrics.breakEvenRate.toFixed(2)}%</Badge>
+                        <Badge variant="success">盈利 {lotteryMetrics.profitRate.toFixed(2)}%</Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs">
+                    按服务端抽取口径测算：RTP = Σ（奖项权重 × 奖励倍率）÷ 已启用总权重，不代表单次抽取结果。
+                  </p>
+                </>
+              ) : (
+                <p>请至少启用一个有效奖项后再查看 RTP 测算结果。</p>
+              )}
+            </AlertDescription>
+          </Alert>
+
           <div className="flex flex-col gap-3">
             {value.lottery.prizes.map((prize, index) => {
               const definition = getLotteryPrizeDefinition(
@@ -381,9 +490,8 @@ export function RewardStrategyPanel() {
                     data-invalid={probabilityIsInvalid}
                   >
                     <FieldLabel htmlFor={`prize-weight-${prize.id}`}>抽取概率（%）</FieldLabel>
-                    <Input
+                    <NumericInput
                       id={`prize-weight-${prize.id}`}
-                      type="number"
                       min={0.01}
                       max={100}
                       step={0.01}
@@ -391,8 +499,8 @@ export function RewardStrategyPanel() {
                       value={probability}
                       disabled={!prize.enabled}
                       aria-invalid={probabilityIsInvalid}
-                      onChange={(event) => updatePrize(index, {
-                        weight: Math.round(Number(event.target.value) * 100),
+                      onValueChange={(probability) => updatePrize(index, {
+                        weight: Math.round(probability * 100),
                       })}
                     />
                     <FieldDescription>
@@ -404,15 +512,14 @@ export function RewardStrategyPanel() {
 
                   <Field>
                     <FieldLabel htmlFor={`prize-multiplier-${prize.id}`}>奖励倍率</FieldLabel>
-                    <Input
+                    <NumericInput
                       id={`prize-multiplier-${prize.id}`}
-                      type="number"
                       min={0}
                       max={100}
                       step={0.1}
                       inputMode="decimal"
                       value={prize.multiplier}
-                      onChange={(event) => updatePrize(index, { multiplier: Number(event.target.value) })}
+                      onValueChange={(multiplier) => updatePrize(index, { multiplier })}
                     />
                     <FieldDescription>投入 1 灵点可获得 {prize.multiplier || 0} 灵点</FieldDescription>
                   </Field>

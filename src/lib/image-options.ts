@@ -35,6 +35,8 @@ export const CHATGPT2API_QUALITY_OPTIONS = [
 
 export const CHATGPT2API_MAX_IMAGES_PER_CALL = 4;
 export const CHATGPT2API_PAGE_MAX_IMAGES = 10;
+export const CHATGPT2API_MAX_SOURCE_IMAGE_MB = 10;
+export const CHATGPT2API_MAX_SOURCE_IMAGE_BYTES = CHATGPT2API_MAX_SOURCE_IMAGE_MB * 1024 * 1024;
 
 export function isImageSizeAllowedForModel(size: string, model: string) {
   const option = CHATGPT2API_SIZE_OPTIONS.find((item) => item.value === size);

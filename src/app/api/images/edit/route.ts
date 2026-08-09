@@ -7,6 +7,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   CHATGPT2API_MAX_IMAGES_PER_CALL,
+  CHATGPT2API_MAX_SOURCE_IMAGE_BYTES,
+  CHATGPT2API_MAX_SOURCE_IMAGE_MB,
   isImageSizeAllowedForModel,
 } from "@/lib/image-options";
 import { saveBase64Image } from "@/lib/image-store";
@@ -15,8 +17,6 @@ import { imageHistory, quotaLogs, user } from "@/lib/schema";
 import { getSystemSettings } from "@/lib/system-settings";
 
 export const runtime = "nodejs";
-
-const MAX_SOURCE_IMAGE_BYTES = 25 * 1024 * 1024;
 
 type SupportedSourceImage = {
   extension: "jpg" | "png" | "webp";
@@ -197,10 +197,10 @@ export async function POST(req: NextRequest) {
     const contentLength = Number(req.headers.get("content-length"));
     if (
       Number.isFinite(contentLength) &&
-      contentLength > MAX_SOURCE_IMAGE_BYTES + 1024 * 1024
+      contentLength > CHATGPT2API_MAX_SOURCE_IMAGE_BYTES + 1024 * 1024
     ) {
       return NextResponse.json(
-        { error: "参考图片不能超过 25 MB" },
+        { error: `参考图片不能超过 ${CHATGPT2API_MAX_SOURCE_IMAGE_MB} MB` },
         { status: 413 },
       );
     }
@@ -257,9 +257,9 @@ export async function POST(req: NextRequest) {
     if (!(imageValue instanceof File) || imageValue.size === 0) {
       return NextResponse.json({ error: "请选择一张参考图片" }, { status: 400 });
     }
-    if (imageValue.size > MAX_SOURCE_IMAGE_BYTES) {
+    if (imageValue.size > CHATGPT2API_MAX_SOURCE_IMAGE_BYTES) {
       return NextResponse.json(
-        { error: "参考图片不能超过 25 MB" },
+        { error: `参考图片不能超过 ${CHATGPT2API_MAX_SOURCE_IMAGE_MB} MB` },
         { status: 413 },
       );
     }

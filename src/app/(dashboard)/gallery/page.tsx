@@ -17,7 +17,12 @@ import { ArrowDownToLine, ArrowUpDown, ChevronDown, Copy, ImagePlus, LoaderCircl
 interface HistoryItem { id: string; type: string; model: string; prompt: string; size: string | null; quality: string | null; imageUrl: string | null; cost: number; createdAt: string; }
 interface ImageDimensions { width: number; height: number }
 type Filter = "all" | "generate" | "edit";
-const gallerySpans = ["is-wide", "is-wide", "is-wide", "is-medium", "is-medium", "is-medium", "is-medium", "is-wide", "is-medium", "is-large"];
+
+function getImageAspectRatio(size: string | null) {
+  if (!size || size === "auto") return "1 / 1";
+  const [width, height] = size.split("x").map(Number);
+  return width > 0 && height > 0 ? `${width} / ${height}` : "1 / 1";
+}
 
 export default function GalleryPage() {
   const { data: session, isPending } = useSession();
@@ -30,6 +35,7 @@ export default function GalleryPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [galleryAspectRatios, setGalleryAspectRatios] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<HistoryItem | null>(null);
   const [zoom, setZoom] = useState(1);
   const [imageNaturalSize, setImageNaturalSize] = useState<ImageDimensions | null>(null);
@@ -60,6 +66,12 @@ export default function GalleryPage() {
       notify.error({ key: "gallery-load", message: "作品加载失败", description: error instanceof Error ? error.message : "请稍后重试", position: "topRight" });
     } finally { setLoading(false); setLoadingMore(false); }
   }, [filter, query, sort]);
+
+  const rememberGalleryAspectRatio = useCallback((id: string, image: HTMLImageElement) => {
+    if (!image.naturalWidth || !image.naturalHeight) return;
+    const ratio = `${image.naturalWidth} / ${image.naturalHeight}`;
+    setGalleryAspectRatios((current) => current[id] === ratio ? current : { ...current, [id]: ratio });
+  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -181,7 +193,17 @@ export default function GalleryPage() {
   return <AppShell active="gallery" user={user}>
     <div className="lumina-page-heading"><div><p className="lumina-eyebrow">YOUR WORKS</p><h1>我的作品</h1><p>每一幅作品，都是灵感的记录</p></div></div>
     <div className="lumina-gallery-toolbar"><Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}><TabsList><TabsTrigger value="all">全部</TabsTrigger><TabsTrigger value="generate">文生图</TabsTrigger><TabsTrigger value="edit">图生图</TabsTrigger></TabsList></Tabs><div className="lumina-gallery-actions"><div className="relative lumina-gallery-search"><Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void load(1, false); }} placeholder="搜索作品名称或描述…" className="lumina-gallery-search-input pl-10" aria-label="搜索作品" /></div><Select value={sort} onValueChange={(value) => value && setSort(value as "newest" | "oldest")}><SelectTrigger className="lumina-gallery-sort" aria-label="作品排序"><ArrowUpDown /><SelectValue /></SelectTrigger><SelectContent align="end"><SelectGroup><SelectItem value="newest">最近创建</SelectItem><SelectItem value="oldest">最早创建</SelectItem></SelectGroup></SelectContent></Select></div></div>
-    {loading ? <div className="grid min-h-80 place-items-center"><LoaderCircle className="size-8 animate-spin text-primary" /></div> : gridItems.length === 0 ? <Card className="grid min-h-80 place-items-center text-center"><div><ImagePlus className="mx-auto mb-3 size-10 text-muted-foreground/50" /><p className="font-medium">还没有符合条件的作品</p><p className="mt-2 text-sm text-muted-foreground">去创作页完成第一幅作品吧。</p></div></Card> : <div className="lumina-bento">{gridItems.map((item, index) => <article key={item.id} className={`lumina-bento-card ${gallerySpans[index % gallerySpans.length]}`}><button type="button" className="h-full w-full" onClick={() => openLightbox(item)}><img src={item.imageUrl!} alt={item.prompt} /></button><div className="lumina-bento-overlay"><div><strong>{item.prompt}</strong><span>{item.type === "edit" ? "图生图" : "文生图"} · {item.size ?? "自动尺寸"}</span></div><div className="lumina-bento-overlay-actions"><a className="inline-flex size-8 items-center justify-center rounded-lg hover:bg-muted" href={item.imageUrl!} download={`lumina-${item.id}.png`} aria-label="下载作品"><ArrowDownToLine className="size-4" /></a><Button variant="ghost" size="icon" aria-label="删除作品" onClick={(event) => { event.stopPropagation(); setDeleteTarget(item); }}><Trash2 /></Button></div></div></article>)}</div>}
+    {loading ? <div className="grid min-h-80 place-items-center"><LoaderCircle className="size-8 animate-spin text-primary" /></div> : gridItems.length === 0 ? <Card className="grid min-h-80 place-items-center text-center"><div><ImagePlus className="mx-auto mb-3 size-10 text-muted-foreground/50" /><p className="font-medium">还没有符合条件的作品</p><p className="mt-2 text-sm text-muted-foreground">去创作页完成第一幅作品吧。</p></div></Card> : <div className="lumina-gallery-masonry">{gridItems.map((item) => {
+      const aspectRatio = galleryAspectRatios[item.id] ?? getImageAspectRatio(item.size);
+      return <article key={item.id} className="lumina-gallery-card">
+        <div className="lumina-gallery-card-media" style={{ aspectRatio }}>
+          <button type="button" className="lumina-gallery-card-trigger" onClick={() => openLightbox(item)}>
+            <img src={item.imageUrl!} alt={item.prompt} loading="lazy" decoding="async" onLoad={(event) => rememberGalleryAspectRatio(item.id, event.currentTarget)} />
+          </button>
+        </div>
+        <div className="lumina-gallery-overlay"><div><strong>{item.prompt}</strong><span>{item.type === "edit" ? "图生图" : "文生图"} · {item.size ?? "自动尺寸"}</span></div><div className="lumina-gallery-overlay-actions"><a className="inline-flex size-8 items-center justify-center rounded-lg hover:bg-muted" href={item.imageUrl!} download={`lumina-${item.id}.png`} aria-label="下载作品"><ArrowDownToLine className="size-4" /></a><Button variant="ghost" size="icon" aria-label="删除作品" onClick={(event) => { event.stopPropagation(); setDeleteTarget(item); }}><Trash2 /></Button></div></div>
+      </article>;
+    })}</div>}
     {!loading && gridItems.length > 0 && <div className="lumina-load-more">{hasMore ? <Button variant="outline" disabled={loadingMore} onClick={() => void load(page + 1, true)}>{loadingMore ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}加载更多</Button> : <span>已经看到全部作品</span>}</div>}
 
     {selected?.imageUrl && createPortal(<div ref={lightboxRef} className="lumina-lightbox" role="dialog" aria-modal="true" aria-label="作品图片预览" onMouseDown={(event) => { if (event.target === event.currentTarget) closeLightbox(); }}>

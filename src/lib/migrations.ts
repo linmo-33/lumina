@@ -273,6 +273,159 @@ const migrations: Migration[] = [
       WHERE key = 'lotteryPolicy';
     `,
   },
+  {
+    id: 9,
+    name: "make_green_apple_multiplier_integer",
+    sql: `
+      UPDATE system_settings
+      SET value = json_set(
+                    value,
+                    '$.prizes[' || (
+                      SELECT prize.key
+                      FROM json_each(system_settings.value, '$.prizes') AS prize
+                      WHERE json_extract(prize.value, '$.id') = 'green-apple'
+                         OR json_extract(prize.value, '$.iconKey') = 'green-apple'
+                      LIMIT 1
+                    ) || '].multiplier',
+                    2
+                  ),
+          updated_at = unixepoch() * 1000
+      WHERE key = 'lotteryPolicy'
+        AND EXISTS (
+          SELECT 1
+          FROM json_each(system_settings.value, '$.prizes') AS prize
+          WHERE (
+              json_extract(prize.value, '$.id') = 'green-apple'
+              OR json_extract(prize.value, '$.iconKey') = 'green-apple'
+            )
+            AND json_extract(prize.value, '$.multiplier') = 1.5
+      );
+    `,
+  },
+  {
+    id: 10,
+    name: "make_default_lottery_multipliers_unique",
+    sql: `
+      UPDATE system_settings
+      SET value = json_set(
+                    value,
+                    '$.prizes[' || (
+                      SELECT prize.key
+                      FROM json_each(system_settings.value, '$.prizes') AS prize
+                      WHERE json_extract(prize.value, '$.id') = 'sprout-rest'
+                         OR json_extract(prize.value, '$.iconKey') = 'sprout-rest'
+                      LIMIT 1
+                    ) || '].weight',
+                    5825
+                  ),
+          updated_at = unixepoch() * 1000
+      WHERE key = 'lotteryPolicy'
+        AND updated_by IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM json_each(system_settings.value, '$.prizes') AS prize
+          WHERE (
+              json_extract(prize.value, '$.id') = 'sprout-rest'
+              OR json_extract(prize.value, '$.iconKey') = 'sprout-rest'
+            )
+            AND json_extract(prize.value, '$.weight') = 5500
+        );
+
+      UPDATE system_settings
+      SET value = json_set(
+                    value,
+                    '$.prizes[' || (
+                      SELECT prize.key
+                      FROM json_each(system_settings.value, '$.prizes') AS prize
+                      WHERE json_extract(prize.value, '$.id') = 'warm-mandarin'
+                         OR json_extract(prize.value, '$.iconKey') = 'warm-mandarin'
+                      LIMIT 1
+                    ) || '].multiplier', 3,
+                    '$.prizes[' || (
+                      SELECT prize.key
+                      FROM json_each(system_settings.value, '$.prizes') AS prize
+                      WHERE json_extract(prize.value, '$.id') = 'warm-mandarin'
+                         OR json_extract(prize.value, '$.iconKey') = 'warm-mandarin'
+                      LIMIT 1
+                    ) || '].weight', 300
+                  ),
+          updated_at = unixepoch() * 1000
+      WHERE key = 'lotteryPolicy'
+        AND updated_by IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM json_each(system_settings.value, '$.prizes') AS prize
+          WHERE (
+              json_extract(prize.value, '$.id') = 'warm-mandarin'
+              OR json_extract(prize.value, '$.iconKey') = 'warm-mandarin'
+            )
+            AND json_extract(prize.value, '$.multiplier') = 2
+        );
+
+      UPDATE system_settings
+      SET value = json_set(
+                    value,
+                    '$.prizes[' || (
+                      SELECT prize.key
+                      FROM json_each(system_settings.value, '$.prizes') AS prize
+                      WHERE json_extract(prize.value, '$.id') = 'morning-peach'
+                         OR json_extract(prize.value, '$.iconKey') = 'morning-peach'
+                      LIMIT 1
+                    ) || '].multiplier', 4,
+                    '$.prizes[' || (
+                      SELECT prize.key
+                      FROM json_each(system_settings.value, '$.prizes') AS prize
+                      WHERE json_extract(prize.value, '$.id') = 'morning-peach'
+                         OR json_extract(prize.value, '$.iconKey') = 'morning-peach'
+                      LIMIT 1
+                    ) || '].weight', 125
+                  ),
+          updated_at = unixepoch() * 1000
+      WHERE key = 'lotteryPolicy'
+        AND updated_by IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM json_each(system_settings.value, '$.prizes') AS prize
+          WHERE (
+              json_extract(prize.value, '$.id') = 'morning-peach'
+              OR json_extract(prize.value, '$.iconKey') = 'morning-peach'
+            )
+            AND json_extract(prize.value, '$.multiplier') = 3
+      );
+    `,
+  },
+  {
+    id: 11,
+    name: "rebalance_default_lottery_probabilities",
+    sql: `
+      UPDATE system_settings
+      SET value = json_set(
+                    value,
+                    '$.prizes[0].weight', 4400,
+                    '$.prizes[1].weight', 3600,
+                    '$.prizes[2].weight', 1600,
+                    '$.prizes[3].weight', 200,
+                    '$.prizes[4].weight', 80,
+                    '$.prizes[5].weight', 50,
+                    '$.prizes[6].weight', 40,
+                    '$.prizes[7].weight', 20,
+                    '$.prizes[8].weight', 10
+                  ),
+          updated_at = unixepoch() * 1000
+      WHERE key = 'lotteryPolicy'
+        AND updated_by IS NULL
+        AND json_array_length(value, '$.prizes') = 9
+        AND json_extract(value, '$.prizes[0].id') = 'sprout-rest'
+        AND json_extract(value, '$.prizes[1].id') = 'cherry-glow'
+        AND json_extract(value, '$.prizes[2].id') = 'green-apple'
+        AND json_extract(value, '$.prizes[3].id') = 'warm-mandarin'
+        AND json_extract(value, '$.prizes[4].id') = 'morning-peach'
+        AND json_extract(value, '$.prizes[5].id') = 'starlight-grapes'
+        AND json_extract(value, '$.prizes[6].id') = 'star-dragon-fruit'
+        AND json_extract(value, '$.prizes[7].id') = 'harvest-grand-prize'
+        AND json_extract(value, '$.prizes[8].id') = 'aurora-orchard-jackpot';
+    `,
+  },
 ];
 
 export function runDatabaseMigrations(sqlite: Database.Database) {

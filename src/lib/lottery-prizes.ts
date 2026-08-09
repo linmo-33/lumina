@@ -3,7 +3,7 @@ export const LOTTERY_PRIZE_DEFINITIONS = [
     key: "sprout-rest",
     assetName: "青叶",
     multiplier: 0,
-    defaultWeight: 5500,
+    defaultWeight: 4400,
     image: "/images/lottery-prizes/00-sprout-rest.png",
     effect: "none",
   },
@@ -11,31 +11,31 @@ export const LOTTERY_PRIZE_DEFINITIONS = [
     key: "cherry-glow",
     assetName: "樱桃",
     multiplier: 1,
-    defaultWeight: 2800,
+    defaultWeight: 3600,
     image: "/images/lottery-prizes/01-cherry-glow.png",
     effect: "common",
   },
   {
     key: "green-apple",
     assetName: "青苹果",
-    multiplier: 1.5,
-    defaultWeight: 700,
+    multiplier: 2,
+    defaultWeight: 1600,
     image: "/images/lottery-prizes/02-green-apple.png",
     effect: "common",
   },
   {
     key: "warm-mandarin",
     assetName: "橘子",
-    multiplier: 2,
-    defaultWeight: 500,
+    multiplier: 3,
+    defaultWeight: 200,
     image: "/images/lottery-prizes/03-warm-mandarin.png",
     effect: "common",
   },
   {
     key: "morning-peach",
     assetName: "蜜桃",
-    multiplier: 3,
-    defaultWeight: 250,
+    multiplier: 4,
+    defaultWeight: 80,
     image: "/images/lottery-prizes/04-morning-peach.png",
     effect: "rare",
   },
@@ -43,7 +43,7 @@ export const LOTTERY_PRIZE_DEFINITIONS = [
     key: "starlight-grapes",
     assetName: "葡萄",
     multiplier: 5,
-    defaultWeight: 120,
+    defaultWeight: 50,
     image: "/images/lottery-prizes/05-starlight-grapes.png",
     effect: "rare",
   },
@@ -51,7 +51,7 @@ export const LOTTERY_PRIZE_DEFINITIONS = [
     key: "star-dragon-fruit",
     assetName: "火龙果",
     multiplier: 8,
-    defaultWeight: 70,
+    defaultWeight: 40,
     image: "/images/lottery-prizes/06-star-dragon-fruit.png",
     effect: "epic",
   },
@@ -59,7 +59,7 @@ export const LOTTERY_PRIZE_DEFINITIONS = [
     key: "harvest-grand-prize",
     assetName: "水果篮",
     multiplier: 10,
-    defaultWeight: 40,
+    defaultWeight: 20,
     image: "/images/lottery-prizes/07-harvest-grand-prize.png",
     effect: "grand",
   },
@@ -67,7 +67,7 @@ export const LOTTERY_PRIZE_DEFINITIONS = [
     key: "aurora-orchard-jackpot",
     assetName: "果树",
     multiplier: 20,
-    defaultWeight: 20,
+    defaultWeight: 10,
     image: "/images/lottery-prizes/08-aurora-orchard-jackpot.png",
     effect: "jackpot",
   },
@@ -164,12 +164,12 @@ const prizeByKey = new Map<string, LotteryPrizeDefinition>(
   LOTTERY_PRIZE_DEFINITIONS.map((prize) => [prize.key, prize]),
 );
 
-const legacyMultiplierByIconKey: Record<string, number> = {
-  "item-001": 0,
-  "item-020": 1,
-  "item-200": 2,
-  "item-371": 3,
-  "item-476": 10,
+const legacyPrizeKeyByIconKey: Record<string, LotteryPrizeKey> = {
+  "item-001": "sprout-rest",
+  "item-020": "cherry-glow",
+  "item-200": "warm-mandarin",
+  "item-371": "morning-peach",
+  "item-476": "harvest-grand-prize",
 };
 
 export function getLotteryPrizeDefinition(
@@ -179,11 +179,13 @@ export function getLotteryPrizeDefinition(
   const direct = key ? prizeByKey.get(key) : undefined;
   if (direct) return direct;
 
-  const targetMultiplier = key && key in legacyMultiplierByIconKey
-    ? legacyMultiplierByIconKey[key]
-    : multiplier;
+  const legacyPrizeKey = key ? legacyPrizeKeyByIconKey[key] : undefined;
+  if (legacyPrizeKey) {
+    return prizeByKey.get(legacyPrizeKey) ?? LOTTERY_PRIZE_DEFINITIONS[0];
+  }
+
   return LOTTERY_PRIZE_DEFINITIONS.find(
-    (prize) => prize.multiplier === targetMultiplier,
+    (prize) => prize.multiplier === multiplier,
   ) ?? LOTTERY_PRIZE_DEFINITIONS[0];
 }
 

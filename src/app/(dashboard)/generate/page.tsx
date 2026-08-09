@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePlus, Images, LoaderCircle, RefreshCw, Sparkles } from "lucide-react";
-import { CHATGPT2API_PAGE_MAX_IMAGES, CHATGPT2API_QUALITY_OPTIONS, CHATGPT2API_SIZE_OPTIONS, isImageSizeAllowedForModel } from "@/lib/image-options";
+import { CHATGPT2API_MAX_SOURCE_IMAGE_BYTES, CHATGPT2API_MAX_SOURCE_IMAGE_MB, CHATGPT2API_PAGE_MAX_IMAGES, CHATGPT2API_QUALITY_OPTIONS, CHATGPT2API_SIZE_OPTIONS, isImageSizeAllowedForModel } from "@/lib/image-options";
 
 type CreationMode = "generate" | "edit";
 interface ImageConfig { defaultModel: string; allowedModels: string[]; defaultSize: string; allowedSizes: string[]; defaultQuality: string; allowedQualities: string[]; maxImagesPerRequest: number; promptMaxLength: number; }
@@ -59,7 +59,7 @@ export default function GeneratePage() {
   function changeMode(value: string) { if (loading) return; setMode(value as CreationMode); setResults([]); }
   function chooseSource(file: File | undefined) {
     if (!file) return;
-    if (!/^image\/(png|jpe?g|webp)$/.test(file.type) || file.size > 25 * 1024 * 1024) { notify.error({ key: "source", message: "参考图片不可用", description: "请选择 PNG、JPG 或 WebP，且不超过 25 MB", position: "topRight" }); return; }
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type) || file.size > CHATGPT2API_MAX_SOURCE_IMAGE_BYTES) { notify.error({ key: "source", message: "参考图片不可用", description: `请选择 PNG、JPG 或 WebP，且不超过 ${CHATGPT2API_MAX_SOURCE_IMAGE_MB} MB`, position: "topRight" }); return; }
     if (preview) URL.revokeObjectURL(preview);
     setSource(file); setPreview(URL.createObjectURL(file)); setResults([]);
   }
@@ -98,7 +98,7 @@ export default function GeneratePage() {
           <Tabs value={mode} onValueChange={changeMode} className="mb-6"><TabsList className="grid w-full grid-cols-2 rounded-full"><TabsTrigger value="generate" className="rounded-full">文生图</TabsTrigger><TabsTrigger value="edit" className="rounded-full">图生图</TabsTrigger></TabsList></Tabs>
           <form onSubmit={submit} className="lumina-create-form">
             <FieldGroup>
-              {mode === "edit" && <Field><FieldLabel>参考图片</FieldLabel><div className="lumina-upload-box overflow-hidden p-4">{preview ? <img src={preview} alt="参考图预览" className="h-full max-h-40 w-full rounded-lg object-cover" /> : <ImagePlus aria-hidden="true" />}<strong>{source?.name ?? "添加参考图"}</strong><span>支持 JPG / PNG / WebP，最大 25 MB</span><input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => chooseSource(event.target.files?.[0])} /><Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>{source ? "更换图片" : "选择图片"}</Button></div></Field>}
+              {mode === "edit" && <Field><FieldLabel>参考图片</FieldLabel><div className="lumina-upload-box overflow-hidden p-4">{preview ? <img src={preview} alt="参考图预览" className="h-full max-h-40 w-full rounded-lg object-cover" /> : <ImagePlus aria-hidden="true" />}<strong>{source?.name ?? "添加参考图"}</strong><span>支持 JPG / PNG / WebP，最大 {CHATGPT2API_MAX_SOURCE_IMAGE_MB} MB</span><input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => chooseSource(event.target.files?.[0])} /><Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>{source ? "更换图片" : "选择图片"}</Button></div></Field>}
               <Field>
                 <FieldLabel htmlFor="prompt">{mode === "edit" ? "编辑描述" : "画面描述"}</FieldLabel>
                 <Textarea id="prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={config.promptMaxLength} rows={mode === "edit" ? 5 : 9} className="lumina-prompt-box" placeholder={mode === "edit" ? "描述需要改变的内容，同时说明要保留的主体…" : "描述你想象中的画面…"} required />

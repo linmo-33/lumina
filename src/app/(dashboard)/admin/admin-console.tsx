@@ -5,10 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { notify } from "@/components/app-notifications";
+import { NumericInput } from "@/components/numeric-input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +35,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ChevronLeft, CircleAlert, Gauge, Gift, History, Images, LayoutDashboard, LoaderCircle, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, Users, WalletCards } from "lucide-react";
+import { ChevronLeft, CircleAlert, Gauge, Gift, History, Images, LayoutDashboard, LoaderCircle, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, Users, WalletCards, WandSparkles } from "lucide-react";
 import { RewardStrategyPanel } from "./reward-strategy-panel";
 import { CHATGPT2API_PAGE_MAX_IMAGES, CHATGPT2API_QUALITY_OPTIONS, CHATGPT2API_SIZE_OPTIONS, isImageSizeAllowedForModel } from "@/lib/image-options";
 import { cn } from "@/lib/utils";
@@ -305,7 +313,20 @@ export default function AdminConsole({
       <div className="admin-main">
         <header className="admin-topbar">
           <div className="flex items-center gap-2 text-sm text-muted-foreground"><ChevronLeft className="size-4" />{active.label}</div>
-          <div className="admin-topbar-actions"><Avatar className="size-8"><AvatarFallback>{(currentUser.name || "A").slice(0, 1)}</AvatarFallback></Avatar></div>
+          <div className="admin-topbar-actions">
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="打开账户菜单" />}>
+                <Avatar className="size-8"><AvatarFallback>{(currentUser.name || "A").slice(0, 1)}</AvatarFallback></Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="lumina-account-menu w-48">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem className="lumina-account-menu-item" onClick={() => router.push("/generate")}>
+                    <WandSparkles data-icon="inline-start" />返回前台
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
         <main className="admin-content">
           <div className="admin-heading">
@@ -379,7 +400,7 @@ export default function AdminConsole({
                     <div key={log.id} className="flex items-center justify-between gap-4 rounded-xl border p-4">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={log.change > 0 ? "secondary" : "destructive"}>{log.change > 0 ? "+" : ""}{log.change}</Badge>
+                          <Badge variant={log.change > 0 ? "success" : "destructive"}>{log.change > 0 ? "+" : ""}{log.change}</Badge>
                           <strong className="text-sm">{quotaReasonLabel(log.reason)}</strong>
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">{log.operatorId ? "管理员操作" : "系统记录"}</p>
@@ -408,7 +429,7 @@ export default function AdminConsole({
                     <h3 className="truncate text-lg font-semibold">{selectedUsage.userName}</h3>
                     <p className="truncate text-sm text-muted-foreground">{selectedUsage.userEmail}</p>
                   </div>
-                  <Badge variant={selectedUsage.status === "success" ? "secondary" : "destructive"}>{selectedUsage.status === "success" ? "成功" : "失败"}</Badge>
+                  <Badge variant={selectedUsage.status === "success" ? "success" : "destructive"}>{selectedUsage.status === "success" ? "成功" : "失败"}</Badge>
                 </div>
                 <div className="grid gap-3 rounded-xl border bg-muted/30 p-4 sm:grid-cols-2">
                   <div className="grid gap-1"><span className="text-xs text-muted-foreground">模型</span><strong className="break-words text-sm font-medium">{selectedUsage.model}</strong></div>
@@ -434,7 +455,7 @@ function Metric({ label, value, icon, note }: { label: string; value: string; ic
 function Overview({ userSummary, usageSummary, successRate, trend, typeDistribution }: { userSummary: { total: number; active: number; totalQuota: number }; usageSummary: { total: number; success: number; failed: number; totalCost: number }; successRate: number; trend: TrendPoint[]; typeDistribution: TypePoint[] }) {
   const trendMax = Math.max(...trend.flatMap((item) => [item.total, item.cost]), 1);
   const typeTotal = Math.max(typeDistribution.reduce((sum, item) => sum + item.total, 0), 1);
-  return <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]"><Card><CardHeader><CardTitle>近 7 日调用与消耗</CardTitle></CardHeader><CardContent><div className="grid h-64 grid-cols-7 items-end gap-3 rounded-xl bg-muted/40 p-4">{trend.map((item) => <div key={item.day} className="grid h-full grid-rows-[1fr_auto] gap-2"><div className="flex items-end justify-center gap-1"><span className="w-3 rounded-t bg-primary" title={`${item.total} 次调用`} style={{ height: `${Math.max(item.total / trendMax * 100, item.total ? 5 : 1)}%` }} /><span className="w-3 rounded-t bg-amber-400" title={`${item.cost} 灵点消耗`} style={{ height: `${Math.max(item.cost / trendMax * 100, item.cost ? 5 : 1)}%` }} /></div><span className="text-center text-[10px] text-muted-foreground">{item.day.slice(5)}</span></div>)}</div><div className="mt-3 flex justify-center gap-5 text-xs text-muted-foreground"><span><i className="mr-1 inline-block size-2 rounded-full bg-primary" />调用次数</span><span><i className="mr-1 inline-block size-2 rounded-full bg-amber-400" />灵点消耗</span></div></CardContent></Card><Card><CardHeader><CardTitle>真实运行状态</CardTitle></CardHeader><CardContent className="grid gap-3">{[["数据库数据", `已读取 ${usageSummary.total} 条调用`], ["调用成功率", `${successRate}%`], ["成功输出", `${usageSummary.success} 个`], ["失败记录", `${usageSummary.failed} 条`]].map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-lg border p-3 text-sm"><span>{label}</span><Badge variant="secondary">{value}</Badge></div>)}</CardContent></Card><Card><CardHeader><CardTitle>调用类型分布</CardTitle></CardHeader><CardContent className="grid gap-4">{typeDistribution.length ? typeDistribution.map((item) => <div key={item.type} className="grid gap-2"><div className="flex justify-between text-sm"><span>{item.type === "edit" ? "图生图" : "文生图"}</span><strong>{item.total} 次</strong></div><div className="h-2 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${item.total / typeTotal * 100}%` }} /></div></div>) : <p className="py-10 text-center text-sm text-muted-foreground">暂无调用数据</p>}</CardContent></Card><Card><CardHeader><CardTitle>额度概况</CardTitle></CardHeader><CardContent className="grid gap-3">{[["累计消耗", usageSummary.totalCost], ["可用额度", userSummary.totalQuota], ["活跃账号", userSummary.active]].map(([label, value]) => <div key={label} className="grid grid-cols-[90px_1fr_72px] items-center gap-4 text-sm"><span>{label}</span><div className="h-2 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(Number(value) / Math.max(userSummary.totalQuota + usageSummary.totalCost, 1) * 100, 100)}%` }} /></div><strong className="text-right">{Number(value).toLocaleString()}</strong></div>)}<Alert><ShieldCheck className="size-4" /><AlertDescription>统计来自数据库聚合，密钥不会进入后台响应。</AlertDescription></Alert></CardContent></Card></div>;
+  return <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]"><Card><CardHeader><CardTitle>近 7 日调用与消耗</CardTitle></CardHeader><CardContent><div className="grid h-64 grid-cols-7 items-end gap-3 rounded-xl bg-muted/40 p-4">{trend.map((item) => <div key={item.day} className="grid h-full grid-rows-[1fr_auto] gap-2"><div className="flex items-end justify-center gap-1"><span className="w-3 rounded-t bg-primary" title={`${item.total} 次调用`} style={{ height: `${Math.max(item.total / trendMax * 100, item.total ? 5 : 1)}%` }} /><span className="w-3 rounded-t bg-amber-400" title={`${item.cost} 灵点消耗`} style={{ height: `${Math.max(item.cost / trendMax * 100, item.cost ? 5 : 1)}%` }} /></div><span className="text-center text-[10px] text-muted-foreground">{item.day.slice(5)}</span></div>)}</div><div className="mt-3 flex justify-center gap-5 text-xs text-muted-foreground"><span><i className="mr-1 inline-block size-2 rounded-full bg-primary" />调用次数</span><span><i className="mr-1 inline-block size-2 rounded-full bg-amber-400" />灵点消耗</span></div></CardContent></Card><Card><CardHeader><CardTitle>真实运行状态</CardTitle></CardHeader><CardContent className="grid gap-3">{[["数据库数据", `已读取 ${usageSummary.total} 条调用`], ["调用成功率", `${successRate}%`], ["成功输出", `${usageSummary.success} 个`], ["失败记录", `${usageSummary.failed} 条`]].map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-lg border p-3 text-sm"><span>{label}</span><Badge variant={label === "数据库数据" ? "info" : label === "失败记录" && usageSummary.failed > 0 ? "destructive" : "success"}>{value}</Badge></div>)}</CardContent></Card><Card><CardHeader><CardTitle>调用类型分布</CardTitle></CardHeader><CardContent className="grid gap-4">{typeDistribution.length ? typeDistribution.map((item) => <div key={item.type} className="grid gap-2"><div className="flex justify-between text-sm"><span>{item.type === "edit" ? "图生图" : "文生图"}</span><strong>{item.total} 次</strong></div><div className="h-2 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${item.total / typeTotal * 100}%` }} /></div></div>) : <p className="py-10 text-center text-sm text-muted-foreground">暂无调用数据</p>}</CardContent></Card><Card><CardHeader><CardTitle>额度概况</CardTitle></CardHeader><CardContent className="grid gap-3">{[["累计消耗", usageSummary.totalCost], ["可用额度", userSummary.totalQuota], ["活跃账号", userSummary.active]].map(([label, value]) => <div key={label} className="grid grid-cols-[90px_1fr_72px] items-center gap-4 text-sm"><span>{label}</span><div className="h-2 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(Number(value) / Math.max(userSummary.totalQuota + usageSummary.totalCost, 1) * 100, 100)}%` }} /></div><strong className="text-right">{Number(value).toLocaleString()}</strong></div>)}<Alert><ShieldCheck className="size-4" /><AlertDescription>统计来自数据库聚合，密钥不会进入后台响应。</AlertDescription></Alert></CardContent></Card></div>;
 }
 interface TableControlsProps {
   page: number;
@@ -576,7 +597,7 @@ function UserPanel({ rows, total, onSelect, onAction, ...controls }: TableContro
           <Table>
             <TableHeader><TableRow><TableHead>用户</TableHead><TableHead>状态</TableHead><TableHead>角色</TableHead><TableHead>剩余额度</TableHead><TableHead>累计使用</TableHead><TableHead>注册时间</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
-              {rows.length ? rows.map((row) => <TableRow key={row.id}><TableCell><div className="flex items-center gap-2"><Avatar className="size-8"><AvatarFallback>{row.name.slice(0, 1)}</AvatarFallback></Avatar><div><strong>{row.name}</strong><span className="block text-xs text-muted-foreground">{row.email}</span></div></div></TableCell><TableCell><Badge variant={row.isActive ? "secondary" : "destructive"}>{row.isActive ? "正常" : "已封禁"}</Badge></TableCell><TableCell>{row.role === "admin" ? "管理员" : "普通用户"}</TableCell><TableCell>{row.quota} <Sparkles className="inline size-3 text-primary" /></TableCell><TableCell>{row.used}</TableCell><TableCell>{fmt(row.createdAt)}</TableCell><TableCell><Button size="sm" variant="ghost" onClick={() => onSelect(row)}>详情</Button><Button size="sm" variant="ghost" onClick={() => onAction(row, row.isActive ? "block" : "activate")}>{row.isActive ? "封禁" : "恢复"}</Button></TableCell></TableRow>) : <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">没有匹配的用户</TableCell></TableRow>}
+              {rows.length ? rows.map((row) => <TableRow key={row.id}><TableCell><div className="flex items-center gap-2"><Avatar className="size-8"><AvatarFallback>{row.name.slice(0, 1)}</AvatarFallback></Avatar><div><strong>{row.name}</strong><span className="block text-xs text-muted-foreground">{row.email}</span></div></div></TableCell><TableCell><Badge variant={row.isActive ? "success" : "destructive"}>{row.isActive ? "正常" : "已封禁"}</Badge></TableCell><TableCell>{row.role === "admin" ? "管理员" : "普通用户"}</TableCell><TableCell>{row.quota} <Sparkles className="inline size-3 text-primary" /></TableCell><TableCell>{row.used}</TableCell><TableCell>{fmt(row.createdAt)}</TableCell><TableCell><Button size="sm" variant="ghost" onClick={() => onSelect(row)}>详情</Button><Button size="sm" variant="ghost" onClick={() => onAction(row, row.isActive ? "block" : "activate")}>{row.isActive ? "封禁" : "恢复"}</Button></TableCell></TableRow>) : <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">没有匹配的用户</TableCell></TableRow>}
             </TableBody>
           </Table>
         </div>
@@ -678,7 +699,7 @@ function UsagePanel({ rows, total, onSelect, ...controls }: TableControlsProps &
           <Table>
             <TableHeader><TableRow><TableHead>记录 ID</TableHead><TableHead>用户</TableHead><TableHead>类型</TableHead><TableHead>模型</TableHead><TableHead>状态</TableHead><TableHead>消耗</TableHead><TableHead>创建时间</TableHead><TableHead /></TableRow></TableHeader>
             <TableBody>
-              {rows.length ? rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id.slice(0, 18)}</TableCell><TableCell>{row.userName}</TableCell><TableCell>{row.type === "edit" ? "图生图" : "文生图"}</TableCell><TableCell>{row.model}</TableCell><TableCell><Badge variant={row.status === "success" ? "secondary" : "destructive"}>{row.status === "success" ? "成功" : "失败"}</Badge></TableCell><TableCell>{row.cost}</TableCell><TableCell>{fmt(row.createdAt)}</TableCell><TableCell><Button size="sm" variant="ghost" onClick={() => onSelect(row)}>查看</Button></TableCell></TableRow>) : <TableRow><TableCell colSpan={8} className="h-24 text-center text-muted-foreground">没有匹配的调用记录</TableCell></TableRow>}
+              {rows.length ? rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id.slice(0, 18)}</TableCell><TableCell>{row.userName}</TableCell><TableCell>{row.type === "edit" ? "图生图" : "文生图"}</TableCell><TableCell>{row.model}</TableCell><TableCell><Badge variant={row.status === "success" ? "success" : "destructive"}>{row.status === "success" ? "成功" : "失败"}</Badge></TableCell><TableCell>{row.cost}</TableCell><TableCell>{fmt(row.createdAt)}</TableCell><TableCell><Button size="sm" variant="ghost" onClick={() => onSelect(row)}>查看</Button></TableCell></TableRow>) : <TableRow><TableCell colSpan={8} className="h-24 text-center text-muted-foreground">没有匹配的调用记录</TableCell></TableRow>}
             </TableBody>
           </Table>
         </div>
@@ -763,15 +784,15 @@ function SettingsPanel({
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="max-images">单次最大图片数</FieldLabel>
-              <Input id="max-images" type="number" min={1} max={CHATGPT2API_PAGE_MAX_IMAGES} value={value.maxImagesPerRequest} onChange={(event) => onChange({ ...value, maxImagesPerRequest: Number(event.target.value) })} />
+              <NumericInput id="max-images" min={1} max={CHATGPT2API_PAGE_MAX_IMAGES} value={value.maxImagesPerRequest} onValueChange={(maxImagesPerRequest) => onChange({ ...value, maxImagesPerRequest })} />
             </Field>
             <Field>
               <FieldLabel htmlFor="prompt-max-length">提示词最大字符数</FieldLabel>
-              <Input id="prompt-max-length" type="number" value={value.promptMaxLength} onChange={(event) => onChange({ ...value, promptMaxLength: Number(event.target.value) })} />
+              <NumericInput id="prompt-max-length" min={100} max={20000} value={value.promptMaxLength} onValueChange={(promptMaxLength) => onChange({ ...value, promptMaxLength })} />
             </Field>
             <Field>
               <FieldLabel htmlFor="default-user-quota">新用户初始灵点</FieldLabel>
-              <Input id="default-user-quota" type="number" value={value.defaultUserQuota} onChange={(event) => onChange({ ...value, defaultUserQuota: Number(event.target.value) })} />
+              <NumericInput id="default-user-quota" min={0} max={100000} value={value.defaultUserQuota} onValueChange={(defaultUserQuota) => onChange({ ...value, defaultUserQuota })} />
             </Field>
           </FieldGroup>
           <Alert><ShieldCheck className="size-4" /><AlertDescription>API 密钥、认证密钥和服务地址继续由环境变量管理。</AlertDescription></Alert>

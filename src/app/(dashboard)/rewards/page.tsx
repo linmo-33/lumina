@@ -37,7 +37,7 @@ interface DailyRewardCardProps {
 
 function DailyRewardCard({ daily, claiming, onClaim }: DailyRewardCardProps) {
   return (
-    <Card className="orchard-daily-card">
+    <Card size="sm" className="orchard-daily-card">
       <CardContent className="orchard-daily-content">
         <span className="orchard-daily-icon"><CalendarCheck2 /></span>
         <div className="orchard-daily-copy">
@@ -49,7 +49,7 @@ function DailyRewardCard({ daily, claiming, onClaim }: DailyRewardCardProps) {
           </strong>
         </div>
         {daily.claimed ? (
-          <Badge variant="secondary"><Check data-icon="inline-start" />已领取</Badge>
+          <Badge variant="success"><Check data-icon="inline-start" />已领取</Badge>
         ) : daily.enabled ? (
           <Button size="sm" onClick={onClaim} disabled={claiming}>
             {claiming
@@ -148,7 +148,7 @@ export default function RewardsPage() {
       <LotteryMachine
         balance={rewards.balance}
         policy={rewards.lottery}
-        headerAside={(
+        dailyReward={(
           <DailyRewardCard
             daily={rewards.daily}
             claiming={claiming}
