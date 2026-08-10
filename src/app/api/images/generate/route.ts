@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { user, imageHistory, quotaLogs } from "@/lib/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
-import { createChatgpt2ApiClient } from "@/lib/openai";
+import { createImageApiClient } from "@/lib/openai";
 import { saveBase64Image } from "@/lib/image-store";
 import { randomUUID } from "crypto";
 import { getSystemSettings } from "@/lib/system-settings";
@@ -54,7 +54,7 @@ function getUpstreamFailure(error: unknown): UpstreamFailure | null {
       responseStatus: 502,
       upstreamStatus,
       message:
-        "请求被上游 Cloudflare/WAF 拦截，请检查 CHATGPT2API_BASE_URL 是否指向可访问的 API 源站，并在上游放行 POST /v1/images/generations",
+        "请求被上游 Cloudflare/WAF 拦截，请检查后台供应商地址是否指向可访问的 API 源站，并在上游放行 POST /v1/images/generations",
       logMessage,
       server,
     };
@@ -65,7 +65,7 @@ function getUpstreamFailure(error: unknown): UpstreamFailure | null {
       responseStatus: 502,
       upstreamStatus,
       message:
-        "生图服务认证或访问权限校验失败，请检查 CHATGPT2API_KEY 与上游访问策略",
+        "生图服务认证或访问权限校验失败，请检查后台供应商 API Key 与上游访问策略",
       logMessage,
       server,
     };
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
 
     // chatgpt2api 的网页允许一次选择多张，但 OpenAI 兼容接口单次 n 最大为 4。
     // 这里按上游限制分批请求，并按实际返回的有效图片数扣减灵点。
-    const client = createChatgpt2ApiClient();
+    const client = await createImageApiClient();
     const resultItems: Array<{ b64_json?: string | null }> = [];
     let upstreamError: unknown = null;
     const upstreamSize = size === "auto" ? "1024x1024" : size;

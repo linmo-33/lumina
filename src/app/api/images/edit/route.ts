@@ -12,7 +12,7 @@ import {
   isImageSizeAllowedForModel,
 } from "@/lib/image-options";
 import { saveBase64Image } from "@/lib/image-store";
-import { createChatgpt2ApiClient } from "@/lib/openai";
+import { createImageApiClient } from "@/lib/openai";
 import { imageHistory, quotaLogs, user } from "@/lib/schema";
 import { getSystemSettings } from "@/lib/system-settings";
 
@@ -279,7 +279,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const client = createChatgpt2ApiClient();
+    const client = await createImageApiClient();
     const sourceImage = await toFile(
       sourceBuffer,
       `source.${sourceType.extension}`,

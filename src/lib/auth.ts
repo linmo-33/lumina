@@ -5,6 +5,8 @@ import { emailOTP } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import {
+  PASSWORD_RESET_EXPIRES_IN_SECONDS,
+  sendPasswordResetEmail,
   sendVerificationCodeEmail,
   VERIFICATION_CODE_EXPIRES_IN_SECONDS,
 } from "./email";
@@ -24,6 +26,17 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+    resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRES_IN_SECONDS,
+    revokeSessionsOnPasswordReset: true,
+    async sendResetPassword({ user, url }) {
+      await sendPasswordResetEmail({ email: user.email, url });
+    },
+  },
+  rateLimit: {
+    customRules: {
+      "/request-password-reset": { window: 60, max: 3 },
+      "/reset-password": { window: 60, max: 5 },
+    },
   },
   user: {
     additionalFields: {

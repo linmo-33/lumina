@@ -426,6 +426,26 @@ const migrations: Migration[] = [
         AND json_extract(value, '$.prizes[8].id') = 'aurora-orchard-jackpot';
     `,
   },
+  {
+    id: 12,
+    name: "model_provider_configuration",
+    sql: `
+      CREATE TABLE IF NOT EXISTS model_providers (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        provider_type TEXT NOT NULL,
+        base_url TEXT NOT NULL,
+        api_key_encrypted TEXT NOT NULL,
+        api_key_hint TEXT NOT NULL,
+        model_ids TEXT NOT NULL DEFAULT '[]',
+        models_updated_at INTEGER,
+        updated_by TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (updated_by) REFERENCES user(id) ON DELETE SET NULL
+      );
+    `,
+  },
 ];
 
 export function runDatabaseMigrations(sqlite: Database.Database) {

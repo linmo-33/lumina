@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
@@ -9,7 +9,8 @@ import { NumericInput } from "@/components/numeric-input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,8 +35,9 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ChevronLeft, CircleAlert, Gauge, Gift, History, Images, LayoutDashboard, LoaderCircle, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, Users, WalletCards, WandSparkles } from "lucide-react";
+import { ArrowRight, ChevronLeft, CircleAlert, Gauge, Gift, History, Images, KeyRound, LayoutDashboard, LoaderCircle, RefreshCw, Search, Server, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, UserRound, Users, WalletCards, WandSparkles } from "lucide-react";
 import { RewardStrategyPanel } from "./reward-strategy-panel";
 import { CHATGPT2API_PAGE_MAX_IMAGES, CHATGPT2API_QUALITY_OPTIONS, CHATGPT2API_SIZE_OPTIONS, isImageSizeAllowedForModel } from "@/lib/image-options";
 import { cn } from "@/lib/utils";
@@ -46,6 +48,7 @@ interface UsageRow { id: string; userName: string; userEmail: string; type: stri
 interface QuotaLog { id: string; change: number; reason: string; operatorId: string | null; createdAt: string }
 interface QuotaHistoryData { target: UserRow; recentQuotaLogs: QuotaLog[] }
 interface Settings { defaultModel: string; allowedModels: string[]; defaultSize: string; allowedSizes: string[]; defaultQuality: string; allowedQualities: string[]; maxImagesPerRequest: number; promptMaxLength: number; defaultUserQuota: number }
+interface ProviderSettings { name: string; providerType: "openai_compatible"; baseUrl: string; apiKeyConfigured: boolean; apiKeyHint: string | null; modelIds: string[]; modelsUpdatedAt: string | null; source: "database" | "environment" | "default" }
 interface TrendPoint { day: string; total: number; cost: number }
 interface TypePoint { type: string; total: number }
 const nav = [{ key: "overview", label: "总览", icon: LayoutDashboard }, { key: "users", label: "用户管理", icon: Users }, { key: "quota", label: "额度管理", icon: WalletCards }, { key: "usage", label: "调用记录", icon: Images }, { key: "strategies", label: "奖励策略", icon: Gift }, { key: "settings", label: "系统配置", icon: Settings2 }] as const;
@@ -100,6 +103,9 @@ export default function AdminConsole({
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [typeDistribution, setTypeDistribution] = useState<TypePoint[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [savedSettings, setSavedSettings] = useState<Settings | null>(null);
+  const [provider, setProvider] = useState<ProviderSettings | null>(null);
+  const [savedProvider, setSavedProvider] = useState<ProviderSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [selectedUsage, setSelectedUsage] = useState<UsageRow | null>(null);
@@ -110,6 +116,9 @@ export default function AdminConsole({
   const [quotaHistoryLoading, setQuotaHistoryLoading] = useState(false);
   const [searchDraft, setSearchDraft] = useState(initialSearch);
   const [saving, setSaving] = useState(false);
+  const [providerApiKey, setProviderApiKey] = useState("");
+  const [providerSaving, setProviderSaving] = useState(false);
+  const [modelsRefreshing, setModelsRefreshing] = useState(false);
   const currentUser = session?.user as
     | (NonNullable<typeof session>["user"] & { role?: string; quota?: number })
     | undefined;
@@ -133,18 +142,20 @@ export default function AdminConsole({
         usageParams.set("q", initialSearch);
       }
 
-      const [userResponse, usageResponse, settingsResponse] = await Promise.all([
+      const [userResponse, usageResponse, settingsResponse, providerResponse] = await Promise.all([
         fetch(`/api/admin/users?${userParams.toString()}`),
         fetch(`/api/admin/usage?${usageParams.toString()}`),
         fetch("/api/admin/settings"),
+        fetch("/api/admin/provider"),
       ]);
-      const [userPayload, usagePayload, settingsPayload] = await Promise.all([
+      const [userPayload, usagePayload, settingsPayload, providerPayload] = await Promise.all([
         userResponse.json(),
         usageResponse.json(),
         settingsResponse.json(),
+        providerResponse.json(),
       ]);
-      if (!userResponse.ok || !usageResponse.ok) {
-        throw new Error(userPayload.error || usagePayload.error || "后台数据加载失败");
+      if (!userResponse.ok || !usageResponse.ok || !settingsResponse.ok || !providerResponse.ok) {
+        throw new Error(userPayload.error || usagePayload.error || settingsPayload.error || providerPayload.error || "后台数据加载失败");
       }
       setUsers(userPayload.data ?? []);
       setUserTotal(Number(userPayload.total ?? 0));
@@ -154,7 +165,15 @@ export default function AdminConsole({
       setUsageSummary(usagePayload.summary ?? { total: 0, success: 0, failed: 0, totalCost: 0 });
       setTrend(usagePayload.trend ?? []);
       setTypeDistribution(usagePayload.typeDistribution ?? []);
-      if (settingsPayload.success) setSettings(settingsPayload.data);
+      if (settingsPayload.success) {
+        setSettings(settingsPayload.data);
+        setSavedSettings(settingsPayload.data);
+      }
+      if (providerPayload.success) {
+        setProvider(providerPayload.data);
+        setSavedProvider(providerPayload.data);
+        setProviderApiKey("");
+      }
     } catch (error) {
       notify.error({
         key: "admin-load",
@@ -265,6 +284,7 @@ export default function AdminConsole({
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "保存失败");
       setSettings(payload.data);
+      setSavedSettings(payload.data);
       notify.success({ key: "admin-settings", message: "系统配置已保存", position: "topRight" });
     } catch (error) {
       notify.error({
@@ -275,6 +295,60 @@ export default function AdminConsole({
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveProvider() {
+    if (!provider) return;
+    setProviderSaving(true);
+    try {
+      const response = await fetch("/api/admin/provider", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: provider.name,
+          baseUrl: provider.baseUrl,
+          apiKey: providerApiKey || undefined,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "供应商保存失败");
+      setProvider(payload.data);
+      setSavedProvider(payload.data);
+      setProviderApiKey("");
+      notify.success({ key: "provider-settings", message: "供应商配置已保存", position: "topRight" });
+    } catch (error) {
+      notify.error({ key: "provider-settings", message: "供应商保存失败", description: error instanceof Error ? error.message : "请稍后重试", position: "topRight" });
+    } finally {
+      setProviderSaving(false);
+    }
+  }
+
+  async function refreshProviderModels() {
+    setModelsRefreshing(true);
+    try {
+      const response = await fetch("/api/admin/provider/models", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "上游模型获取失败");
+      const nextProvider = payload.data as ProviderSettings;
+      setProvider(nextProvider);
+      setSavedProvider(nextProvider);
+      setSettings((current) => {
+        if (!current || nextProvider.modelIds.length === 0) return current;
+        const available = new Set(nextProvider.modelIds);
+        const allowedModels = current.allowedModels.filter((model) => available.has(model));
+        const nextAllowedModels = allowedModels.length ? allowedModels : nextProvider.modelIds.slice(0, 1);
+        const fallbackModel = nextAllowedModels[0] || current.defaultModel;
+        const defaultModel = nextAllowedModels.includes(current.defaultModel) ? current.defaultModel : fallbackModel;
+        const compatibleSizes = CHATGPT2API_SIZE_OPTIONS.filter((item) => isImageSizeAllowedForModel(item.value, defaultModel));
+        const defaultSize = compatibleSizes.some((item) => item.value === current.defaultSize) ? current.defaultSize : (compatibleSizes[0]?.value ?? current.defaultSize);
+        return { ...current, allowedModels: nextAllowedModels, defaultModel, defaultSize };
+      });
+      notify.success({ key: "provider-models", message: `已获取 ${nextProvider.modelIds.length} 个上游模型`, position: "topRight" });
+    } catch (error) {
+      notify.error({ key: "provider-models", message: "上游模型获取失败", description: error instanceof Error ? error.message : "请稍后重试", position: "topRight" });
+    } finally {
+      setModelsRefreshing(false);
     }
   }
 
@@ -346,7 +420,7 @@ export default function AdminConsole({
           {section === "quota" && <QuotaPanel {...tableControls} rows={users} total={userTotal} quotaInputs={quotaInputs} adjustingQuotaUserId={adjustingQuotaUserId} onQuotaInputChange={(userId, value) => setQuotaInputs((current) => ({ ...current, [userId]: value }))} onAction={(row, delta) => void adjustQuota(row, delta)} onCustomAction={applyCustomQuota} onHistory={(row) => void openQuotaHistory(row)} />}
           {section === "usage" && <UsagePanel {...tableControls} rows={usage} total={usageTotal} onSelect={setSelectedUsage} />}
           {section === "strategies" && <RewardStrategyPanel />}
-          {section === "settings" && settings && <SettingsPanel value={settings} onChange={setSettings} onSave={() => void saveSettings()} saving={saving} />}
+          {section === "settings" && settings && savedSettings && provider && savedProvider && <SettingsPanel value={settings} savedValue={savedSettings} provider={provider} savedProvider={savedProvider} providerApiKey={providerApiKey} onProviderChange={setProvider} onProviderApiKeyChange={setProviderApiKey} onProviderReset={() => { setProvider(savedProvider); setProviderApiKey(""); }} onProviderSave={() => void saveProvider()} providerSaving={providerSaving} onRefreshModels={() => void refreshProviderModels()} modelsRefreshing={modelsRefreshing} onChange={setSettings} onReset={() => setSettings(savedSettings)} onSave={() => void saveSettings()} saving={saving} />}
         </main>
       </div>
       <Sheet open={Boolean(selectedUser)} onOpenChange={(open) => !open && setSelectedUser(null)}>
@@ -452,10 +526,123 @@ export default function AdminConsole({
 }
 
 function Metric({ label, value, icon, note }: { label: string; value: string; icon: React.ReactNode; note: string }) { return <Card className="admin-metric"><span className="admin-metric-icon">{icon}</span><div><span>{label}</span><strong>{value}</strong><small>{note}</small></div></Card>; }
+
+const typeChartColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
+
+function usageTypeLabel(type: string) {
+  if (type === "edit") return "图生图";
+  if (type === "generate") return "文生图";
+  return type;
+}
+
+function UsageTypeDistribution({ items }: { items: TypePoint[] }) {
+  const total = items.reduce((sum, item) => sum + Math.max(item.total, 0), 0);
+  const segments = items
+    .filter((item) => item.total > 0)
+    .reduce<Array<TypePoint & { color: string; percentage: number; start: number; end: number }>>((result, item, index) => {
+      const percentage = item.total / total * 100;
+      const start = result.length ? result[result.length - 1].end : 0;
+      return [...result, {
+        ...item,
+        color: typeChartColors[index % typeChartColors.length],
+        percentage,
+        start,
+        end: start + percentage,
+      }];
+    }, []);
+  const chartBackground = `conic-gradient(${segments.map((item) => `${item.color} ${item.start}% ${item.end}%`).join(", ")})`;
+  const chartLabel = segments.map((item) => `${usageTypeLabel(item.type)} ${item.total} 次，占 ${Math.round(item.percentage)}%`).join("；");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>调用类型分布</CardTitle>
+        <CardDescription>按文生图和图生图调用次数统计。</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {segments.length ? (
+          <div className="grid items-center gap-6 sm:grid-cols-[160px_minmax(0,1fr)]">
+            <div
+              className="relative mx-auto grid size-36 place-items-center rounded-full"
+              style={{ background: chartBackground }}
+              role="img"
+              aria-label={chartLabel}
+            >
+              <div className="grid size-24 place-items-center rounded-full bg-card text-center ring-1 ring-border">
+                <span>
+                  <strong className="block text-2xl leading-none">{total.toLocaleString()}</strong>
+                  <small className="mt-1 block text-xs text-muted-foreground">总调用</small>
+                </span>
+              </div>
+            </div>
+            <div className="grid gap-3">
+              {segments.map((item) => (
+                <div key={item.type} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+                  <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} aria-hidden="true" />
+                  <div className="min-w-0">
+                    <strong className="block truncate text-sm font-medium">{usageTypeLabel(item.type)}</strong>
+                    <span className="text-xs text-muted-foreground">{item.total.toLocaleString()} 次</span>
+                  </div>
+                  <Badge variant="secondary">{Math.round(item.percentage)}%</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="py-10 text-center text-sm text-muted-foreground">暂无调用数据</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuotaSummary({ userSummary, totalCost }: { userSummary: { total: number; active: number; totalQuota: number }; totalCost: number }) {
+  const activeRate = userSummary.total ? Math.round(userSummary.active / userSummary.total * 100) : 0;
+  const items = [
+    { label: "当前可用", value: userSummary.totalQuota.toLocaleString(), unit: "灵点", note: "全部用户余额合计", icon: Sparkles },
+    { label: "累计消耗", value: totalCost.toLocaleString(), unit: "灵点", note: "成功生成记录消耗合计", icon: WalletCards },
+    { label: "正常账号", value: `${userSummary.active.toLocaleString()} / ${userSummary.total.toLocaleString()}`, unit: "账号", note: `占全部账号 ${activeRate}%`, icon: Users },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>额度概况</CardTitle>
+        <CardDescription>按实际单位展示关键指标，不进行跨口径比较。</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-primary"><Icon className="size-4" aria-hidden="true" /></span>
+              <div className="min-w-0 flex-1">
+                <strong className="block text-sm font-medium">{item.label}</strong>
+                <span className="block truncate text-xs text-muted-foreground">{item.note}</span>
+              </div>
+              <div className="shrink-0 text-right">
+                <strong className="block text-base">{item.value}</strong>
+                <span className="text-xs text-muted-foreground">{item.unit}</span>
+              </div>
+            </div>
+          );
+        })}
+        <Alert><ShieldCheck className="size-4" /><AlertDescription>统计来自数据库聚合，密钥不会进入后台响应。</AlertDescription></Alert>
+      </CardContent>
+    </Card>
+  );
+}
+
 function Overview({ userSummary, usageSummary, successRate, trend, typeDistribution }: { userSummary: { total: number; active: number; totalQuota: number }; usageSummary: { total: number; success: number; failed: number; totalCost: number }; successRate: number; trend: TrendPoint[]; typeDistribution: TypePoint[] }) {
   const trendMax = Math.max(...trend.flatMap((item) => [item.total, item.cost]), 1);
-  const typeTotal = Math.max(typeDistribution.reduce((sum, item) => sum + item.total, 0), 1);
-  return <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]"><Card><CardHeader><CardTitle>近 7 日调用与消耗</CardTitle></CardHeader><CardContent><div className="grid h-64 grid-cols-7 items-end gap-3 rounded-xl bg-muted/40 p-4">{trend.map((item) => <div key={item.day} className="grid h-full grid-rows-[1fr_auto] gap-2"><div className="flex items-end justify-center gap-1"><span className="w-3 rounded-t bg-primary" title={`${item.total} 次调用`} style={{ height: `${Math.max(item.total / trendMax * 100, item.total ? 5 : 1)}%` }} /><span className="w-3 rounded-t bg-amber-400" title={`${item.cost} 灵点消耗`} style={{ height: `${Math.max(item.cost / trendMax * 100, item.cost ? 5 : 1)}%` }} /></div><span className="text-center text-[10px] text-muted-foreground">{item.day.slice(5)}</span></div>)}</div><div className="mt-3 flex justify-center gap-5 text-xs text-muted-foreground"><span><i className="mr-1 inline-block size-2 rounded-full bg-primary" />调用次数</span><span><i className="mr-1 inline-block size-2 rounded-full bg-amber-400" />灵点消耗</span></div></CardContent></Card><Card><CardHeader><CardTitle>真实运行状态</CardTitle></CardHeader><CardContent className="grid gap-3">{[["数据库数据", `已读取 ${usageSummary.total} 条调用`], ["调用成功率", `${successRate}%`], ["成功输出", `${usageSummary.success} 个`], ["失败记录", `${usageSummary.failed} 条`]].map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-lg border p-3 text-sm"><span>{label}</span><Badge variant={label === "数据库数据" ? "info" : label === "失败记录" && usageSummary.failed > 0 ? "destructive" : "success"}>{value}</Badge></div>)}</CardContent></Card><Card><CardHeader><CardTitle>调用类型分布</CardTitle></CardHeader><CardContent className="grid gap-4">{typeDistribution.length ? typeDistribution.map((item) => <div key={item.type} className="grid gap-2"><div className="flex justify-between text-sm"><span>{item.type === "edit" ? "图生图" : "文生图"}</span><strong>{item.total} 次</strong></div><div className="h-2 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${item.total / typeTotal * 100}%` }} /></div></div>) : <p className="py-10 text-center text-sm text-muted-foreground">暂无调用数据</p>}</CardContent></Card><Card><CardHeader><CardTitle>额度概况</CardTitle></CardHeader><CardContent className="grid gap-3">{[["累计消耗", usageSummary.totalCost], ["可用额度", userSummary.totalQuota], ["活跃账号", userSummary.active]].map(([label, value]) => <div key={label} className="grid grid-cols-[90px_1fr_72px] items-center gap-4 text-sm"><span>{label}</span><div className="h-2 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(Number(value) / Math.max(userSummary.totalQuota + usageSummary.totalCost, 1) * 100, 100)}%` }} /></div><strong className="text-right">{Number(value).toLocaleString()}</strong></div>)}<Alert><ShieldCheck className="size-4" /><AlertDescription>统计来自数据库聚合，密钥不会进入后台响应。</AlertDescription></Alert></CardContent></Card></div>;
+  return (
+    <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
+      <Card><CardHeader><CardTitle>近 7 日调用与消耗</CardTitle></CardHeader><CardContent><div className="grid h-64 grid-cols-7 items-end gap-3 rounded-xl bg-muted/40 p-4">{trend.map((item) => <div key={item.day} className="grid h-full grid-rows-[1fr_auto] gap-2"><div className="flex items-end justify-center gap-1"><span className="w-3 rounded-t bg-primary" title={`${item.total} 次调用`} style={{ height: `${Math.max(item.total / trendMax * 100, item.total ? 5 : 1)}%` }} /><span className="w-3 rounded-t bg-amber-400" title={`${item.cost} 灵点消耗`} style={{ height: `${Math.max(item.cost / trendMax * 100, item.cost ? 5 : 1)}%` }} /></div><span className="text-center text-[10px] text-muted-foreground">{item.day.slice(5)}</span></div>)}</div><div className="mt-3 flex justify-center gap-5 text-xs text-muted-foreground"><span><i className="mr-1 inline-block size-2 rounded-full bg-primary" />调用次数</span><span><i className="mr-1 inline-block size-2 rounded-full bg-amber-400" />灵点消耗</span></div></CardContent></Card>
+      <Card><CardHeader><CardTitle>真实运行状态</CardTitle></CardHeader><CardContent className="grid gap-3">{[["数据库数据", `已读取 ${usageSummary.total} 条调用`], ["调用成功率", `${successRate}%`], ["成功输出", `${usageSummary.success} 个`], ["失败记录", `${usageSummary.failed} 条`]].map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-lg border p-3 text-sm"><span>{label}</span><Badge variant={label === "数据库数据" ? "info" : label === "失败记录" && usageSummary.failed > 0 ? "destructive" : "success"}>{value}</Badge></div>)}</CardContent></Card>
+      <UsageTypeDistribution items={typeDistribution} />
+      <QuotaSummary userSummary={userSummary} totalCost={usageSummary.totalCost} />
+    </div>
+  );
 }
 interface TableControlsProps {
   page: number;
@@ -708,17 +895,93 @@ function UsagePanel({ rows, total, onSelect, ...controls }: TableControlsProps &
     </Card>
   );
 }
+
+type SettingsSection = "connection" | "models" | "generation" | "users";
+
+function providerEndpointLabel(baseUrl: string) {
+  try {
+    const url = new URL(baseUrl);
+    return `${url.host}${url.pathname === "/" ? "" : url.pathname}`;
+  } catch {
+    return baseUrl || "尚未配置地址";
+  }
+}
+
+function ProviderStatusItem({ icon, label, value, note }: { icon: ReactNode; label: string; value: string; note: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3 border-b px-4 py-3 last:border-b-0 md:border-b-0">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-primary">{icon}</span>
+      <div className="min-w-0">
+        <span className="block text-xs text-muted-foreground">{label}</span>
+        <strong className="block truncate text-sm">{value}</strong>
+        <span className="block truncate text-xs text-muted-foreground">{note}</span>
+      </div>
+    </div>
+  );
+}
+
+function SettingsSaveFooter({ dirty, saving, onReset, onSave }: { dirty: boolean; saving: boolean; onReset: () => void; onSave: () => void }) {
+  return (
+    <CardFooter className="flex flex-wrap justify-between gap-3">
+      <Badge variant={dirty ? "warning" : "secondary"}>{dirty ? "有未保存更改" : "配置已保存"}</Badge>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onReset} disabled={!dirty || saving}>取消更改</Button>
+        <Button onClick={onSave} disabled={!dirty || saving}>
+          {saving ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}
+          保存策略
+        </Button>
+      </div>
+    </CardFooter>
+  );
+}
+
 function SettingsPanel({
   value,
+  savedValue,
+  provider,
+  savedProvider,
+  providerApiKey,
+  onProviderChange,
+  onProviderApiKeyChange,
+  onProviderReset,
+  onProviderSave,
+  providerSaving,
+  onRefreshModels,
+  modelsRefreshing,
   onChange,
+  onReset,
   onSave,
   saving,
 }: {
   value: Settings;
+  savedValue: Settings;
+  provider: ProviderSettings;
+  savedProvider: ProviderSettings;
+  providerApiKey: string;
+  onProviderChange: (value: ProviderSettings) => void;
+  onProviderApiKeyChange: (value: string) => void;
+  onProviderReset: () => void;
+  onProviderSave: () => void;
+  providerSaving: boolean;
+  onRefreshModels: () => void;
+  modelsRefreshing: boolean;
   onChange: (value: Settings) => void;
+  onReset: () => void;
   onSave: () => void;
   saving: boolean;
 }) {
+  const [section, setSection] = useState<SettingsSection>("connection");
+  const [modelSearch, setModelSearch] = useState("");
+  const settingsDirty = JSON.stringify(value) !== JSON.stringify(savedValue);
+  const providerFieldsDirty =
+    provider.name !== savedProvider.name ||
+    provider.baseUrl !== savedProvider.baseUrl ||
+    providerApiKey.length > 0;
+  const providerDirty = provider.source !== "database" || providerFieldsDirty;
+  const normalizedModelSearch = modelSearch.trim().toLowerCase();
+  const visibleModels = normalizedModelSearch
+    ? provider.modelIds.filter((model) => model.toLowerCase().includes(normalizedModelSearch))
+    : provider.modelIds;
   const sizeOptions = CHATGPT2API_SIZE_OPTIONS.filter(
     (item) => value.allowedSizes.includes(item.value) && isImageSizeAllowedForModel(item.value, value.defaultModel),
   );
@@ -734,71 +997,219 @@ function SettingsPanel({
     onChange({ ...value, defaultModel, defaultSize });
   }
 
+  function changeAllowedModels(model: string, checked: boolean) {
+    if (checked) {
+      if (value.allowedModels.length >= 12) {
+        notify.error({ key: "allowed-models", message: "最多允许 12 个模型", position: "topRight" });
+        return;
+      }
+      onChange({ ...value, allowedModels: [...value.allowedModels, model] });
+      return;
+    }
+
+    if (value.allowedModels.length <= 1) {
+      notify.error({ key: "allowed-models", message: "至少需要保留一个可用模型", position: "topRight" });
+      return;
+    }
+    const allowedModels = value.allowedModels.filter((item) => item !== model);
+    const defaultModel = value.defaultModel === model ? allowedModels[0] : value.defaultModel;
+    onChange({ ...value, allowedModels, defaultModel });
+  }
+
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
+    <div className="mx-auto grid w-full max-w-[1120px] gap-5">
       <Card>
-        <CardHeader><CardTitle>生成模型</CardTitle></CardHeader>
-        <CardContent>
-          <FieldGroup>
-            <Field>
-              <FieldLabel>默认模型</FieldLabel>
-              <Select value={value.defaultModel} onValueChange={(next) => next && changeDefaultModel(next)}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent align="start" alignItemWithTrigger={false} className="min-w-72">
-                  <SelectGroup>{value.allowedModels.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="allowed-models">可用模型（逗号分隔）</FieldLabel>
-              <Input id="allowed-models" value={value.allowedModels.join(", ")} onChange={(event) => onChange({ ...value, allowedModels: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })} />
-              <FieldDescription>模型 ID 会进入白名单，并原样传递给兼容 Images API。</FieldDescription>
-            </Field>
-            <FieldGroup className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel>默认尺寸</FieldLabel>
-                <Select value={value.defaultSize} onValueChange={(next) => next && onChange({ ...value, defaultSize: next })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent align="start" alignItemWithTrigger={false} className="min-w-72 max-w-[calc(100vw-2rem)]">
-                    <SelectGroup>{sizeOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
-                  </SelectContent>
-                </Select>
-                <FieldDescription>仅显示当前模型支持且已允许的尺寸。</FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel>默认质量</FieldLabel>
-                <Select value={value.defaultQuality} onValueChange={(next) => next && onChange({ ...value, defaultQuality: next })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent align="start" alignItemWithTrigger={false} className="min-w-48">
-                    <SelectGroup>{qualityOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
-          </FieldGroup>
+        <CardHeader className="border-b">
+          <CardTitle>供应商链路</CardTitle>
+          <CardDescription>从 Lumina 请求入口到当前上游模型的实时配置摘要。</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+            <ProviderStatusItem icon={<Sparkles />} label="请求入口" value="Lumina" note="文生图与图生图" />
+            <ArrowRight className="mx-1 hidden size-4 text-muted-foreground md:block" aria-hidden="true" />
+            <ProviderStatusItem icon={<Server />} label={`供应商 · ${provider.apiKeyHint || "未配置密钥"}`} value={provider.name} note={providerEndpointLabel(provider.baseUrl)} />
+            <ArrowRight className="mx-1 hidden size-4 text-muted-foreground md:block" aria-hidden="true" />
+            <ProviderStatusItem icon={<WandSparkles />} label="模型目录" value={`${provider.modelIds.length} 个上游模型`} note={provider.modelsUpdatedAt ? `${fmt(provider.modelsUpdatedAt)} 同步` : "尚未同步上游模型"} />
+          </div>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle>限制与用户默认值</CardTitle></CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="max-images">单次最大图片数</FieldLabel>
-              <NumericInput id="max-images" min={1} max={CHATGPT2API_PAGE_MAX_IMAGES} value={value.maxImagesPerRequest} onValueChange={(maxImagesPerRequest) => onChange({ ...value, maxImagesPerRequest })} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="prompt-max-length">提示词最大字符数</FieldLabel>
-              <NumericInput id="prompt-max-length" min={100} max={20000} value={value.promptMaxLength} onValueChange={(promptMaxLength) => onChange({ ...value, promptMaxLength })} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="default-user-quota">新用户初始灵点</FieldLabel>
-              <NumericInput id="default-user-quota" min={0} max={100000} value={value.defaultUserQuota} onValueChange={(defaultUserQuota) => onChange({ ...value, defaultUserQuota })} />
-            </Field>
-          </FieldGroup>
-          <Alert><ShieldCheck className="size-4" /><AlertDescription>API 密钥、认证密钥和服务地址继续由环境变量管理。</AlertDescription></Alert>
-          <Button onClick={onSave} disabled={saving}>{saving ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}保存系统配置</Button>
-        </CardContent>
-      </Card>
+
+      <Tabs value={section} onValueChange={(next) => setSection(next as SettingsSection)}>
+        <TabsList className="grid h-auto w-full grid-cols-2 p-1 group-data-horizontal/tabs:h-auto lg:grid-cols-4">
+          <TabsTrigger value="connection" className="min-h-9 py-2"><Server />连接配置</TabsTrigger>
+          <TabsTrigger value="models" className="min-h-9 py-2"><WandSparkles />模型策略</TabsTrigger>
+          <TabsTrigger value="generation" className="min-h-9 py-2"><SlidersHorizontal />生成参数</TabsTrigger>
+          <TabsTrigger value="users" className="min-h-9 py-2"><UserRound />用户默认值</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="connection">
+          <Card>
+            <CardHeader>
+              <CardTitle>连接配置</CardTitle>
+              <CardDescription>保存 OpenAI 兼容供应商地址和密钥后，再同步模型目录。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup className="grid gap-5 lg:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="provider-name">供应商名称</FieldLabel>
+                  <Input id="provider-name" value={provider.name} onChange={(event) => onProviderChange({ ...provider, name: event.target.value })} placeholder="例如：主生图服务" />
+                </Field>
+                <Field data-disabled>
+                  <FieldLabel htmlFor="provider-type">请求格式</FieldLabel>
+                  <Input id="provider-type" value="OpenAI 兼容（openai_compatible）" disabled />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="provider-base-url">供应商 API 地址</FieldLabel>
+                  <Input id="provider-base-url" value={provider.baseUrl} onChange={(event) => onProviderChange({ ...provider, baseUrl: event.target.value })} placeholder="https://example.com/v1" />
+                  <FieldDescription>通常以 `/v1` 结尾，不要在地址中填写密钥。</FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="provider-api-key">API Key</FieldLabel>
+                  <Input id="provider-api-key" type="password" value={providerApiKey} onChange={(event) => onProviderApiKeyChange(event.target.value)} placeholder={provider.apiKeyHint ? `已配置 ${provider.apiKeyHint}，留空保持不变` : "请输入供应商 API Key"} autoComplete="new-password" />
+                  <FieldDescription>密钥只在服务端加密保存，不会返回浏览器或写入审计日志。</FieldDescription>
+                </Field>
+              </FieldGroup>
+              {providerDirty ? (
+                <Alert className="mt-5"><CircleAlert /><AlertDescription>连接配置有未保存更改。保存后才能使用新地址或密钥同步模型。</AlertDescription></Alert>
+              ) : null}
+            </CardContent>
+            <CardFooter className="flex flex-wrap justify-between gap-3">
+              <Badge variant={provider.source === "database" ? "success" : "warning"}>{provider.source === "database" ? "数据库配置" : "环境变量回退"}</Badge>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={onProviderReset} disabled={!providerFieldsDirty || providerSaving}>取消更改</Button>
+                <Button onClick={onProviderSave} disabled={!providerDirty || providerSaving}>
+                  {providerSaving ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}
+                  保存连接
+                </Button>
+                <Button variant="outline" onClick={onRefreshModels} disabled={providerDirty || modelsRefreshing || !provider.apiKeyConfigured}>
+                  {modelsRefreshing ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
+                  同步模型
+                </Button>
+              </div>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="models">
+          <Card>
+            <CardHeader>
+              <CardTitle>模型策略</CardTitle>
+              <CardDescription>从上游模型目录中选择创作页可用模型，并指定默认模型。</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,.6fr)]">
+              <FieldSet>
+                <FieldLegend variant="label">可用模型</FieldLegend>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <FieldDescription>最多选择 12 个模型。</FieldDescription>
+                  <Badge variant="secondary">已选择 {value.allowedModels.length} / 12</Badge>
+                </div>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input value={modelSearch} onChange={(event) => setModelSearch(event.target.value)} className="pl-8" placeholder="搜索上游模型" aria-label="搜索上游模型" />
+                </div>
+                {provider.modelIds.length ? (
+                  <ScrollArea className="h-80 rounded-lg border">
+                    {visibleModels.length ? (
+                      <FieldGroup className="gap-1 p-2" data-slot="checkbox-group">
+                        {visibleModels.map((model, index) => (
+                          <Field key={model} orientation="horizontal" className="rounded-lg p-2.5 hover:bg-muted/50">
+                            <Checkbox id={`provider-model-${index}`} checked={value.allowedModels.includes(model)} onCheckedChange={(checked) => changeAllowedModels(model, Boolean(checked))} />
+                            <FieldLabel htmlFor={`provider-model-${index}`} className="min-w-0 font-normal"><span className="truncate">{model}</span></FieldLabel>
+                          </Field>
+                        ))}
+                      </FieldGroup>
+                    ) : (
+                      <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">没有匹配的上游模型</div>
+                    )}
+                  </ScrollArea>
+                ) : (
+                  <Alert><AlertDescription>暂未同步上游模型。请先保存连接，再点击“同步模型”。</AlertDescription></Alert>
+                )}
+              </FieldSet>
+
+              <FieldGroup>
+                <Field>
+                  <FieldLabel>默认模型</FieldLabel>
+                  <Select items={value.allowedModels.map((item) => ({ label: item, value: item }))} value={value.defaultModel} onValueChange={(next) => next && changeDefaultModel(next)}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent align="start" alignItemWithTrigger={false} className="min-w-72">
+                      <SelectGroup>{value.allowedModels.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>创作页初次打开时默认选中的模型。</FieldDescription>
+                </Field>
+                <Alert><ShieldCheck /><AlertDescription>只有已勾选模型会返回创作页，默认模型必须包含在其中。</AlertDescription></Alert>
+                <Button variant="outline" onClick={onRefreshModels} disabled={providerDirty || modelsRefreshing || !provider.apiKeyConfigured}>
+                  {modelsRefreshing ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
+                  重新同步上游模型
+                </Button>
+              </FieldGroup>
+            </CardContent>
+            <SettingsSaveFooter dirty={settingsDirty} saving={saving} onReset={onReset} onSave={onSave} />
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="generation">
+          <Card>
+            <CardHeader>
+              <CardTitle>生成参数</CardTitle>
+              <CardDescription>设置创作页默认选项与服务端请求边界，图片尺寸格式保持不变。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup className="grid gap-5 md:grid-cols-2">
+                <Field>
+                  <FieldLabel>默认尺寸</FieldLabel>
+                  <Select items={sizeOptions.map((item) => ({ label: item.label, value: item.value }))} value={value.defaultSize} onValueChange={(next) => next && onChange({ ...value, defaultSize: next })}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent align="start" alignItemWithTrigger={false} className="min-w-72 max-w-[calc(100vw-2rem)]">
+                      <SelectGroup>{sizeOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>仅显示当前默认模型支持且已允许的尺寸。</FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel>默认质量</FieldLabel>
+                  <Select items={qualityOptions.map((item) => ({ label: item.label, value: item.value }))} value={value.defaultQuality} onValueChange={(next) => next && onChange({ ...value, defaultQuality: next })}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent align="start" alignItemWithTrigger={false} className="min-w-48">
+                      <SelectGroup>{qualityOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="max-images">单次最大图片数</FieldLabel>
+                  <NumericInput id="max-images" min={1} max={CHATGPT2API_PAGE_MAX_IMAGES} value={value.maxImagesPerRequest} onValueChange={(maxImagesPerRequest) => onChange({ ...value, maxImagesPerRequest })} />
+                  <FieldDescription>限制单次请求允许生成的图片数量。</FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="prompt-max-length">提示词最大字符数</FieldLabel>
+                  <NumericInput id="prompt-max-length" min={100} max={20000} value={value.promptMaxLength} onValueChange={(promptMaxLength) => onChange({ ...value, promptMaxLength })} />
+                  <FieldDescription>服务端会拒绝超过限制的提示词。</FieldDescription>
+                </Field>
+              </FieldGroup>
+            </CardContent>
+            <SettingsSaveFooter dirty={settingsDirty} saving={saving} onReset={onReset} onSave={onSave} />
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="users">
+          <Card>
+            <CardHeader>
+              <CardTitle>用户默认值</CardTitle>
+              <CardDescription>仅影响之后创建的新用户，不会覆盖现有用户余额。</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+              <Field>
+                <FieldLabel htmlFor="default-user-quota">新用户初始灵点</FieldLabel>
+                <NumericInput id="default-user-quota" min={0} max={100000} value={value.defaultUserQuota} onValueChange={(defaultUserQuota) => onChange({ ...value, defaultUserQuota })} />
+                <FieldDescription>用户完成注册后获得的初始可用灵点。</FieldDescription>
+              </Field>
+              <Alert><KeyRound /><AlertDescription>认证密钥和邮件服务仍由环境变量管理，不会在这个页面中读取或回显。</AlertDescription></Alert>
+            </CardContent>
+            <SettingsSaveFooter dirty={settingsDirty} saving={saving} onReset={onReset} onSave={onSave} />
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

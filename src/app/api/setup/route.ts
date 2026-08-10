@@ -47,11 +47,6 @@ async function getSetupState() {
     appUrl: Boolean(process.env.BETTER_AUTH_URL),
     emailApiKey: emailService.apiKey,
     emailFrom: emailService.from,
-    imageApiUrl: Boolean(process.env.CHATGPT2API_BASE_URL),
-    imageApiKey: Boolean(
-      process.env.CHATGPT2API_KEY &&
-        process.env.CHATGPT2API_KEY !== "your-auth-key",
-    ),
   };
 
   return {
@@ -59,9 +54,7 @@ async function getSetupState() {
     adminExists: adminCount > 0,
     canInitialize:
       databaseReady &&
-      checks.authSecret &&
-      checks.emailApiKey &&
-      checks.emailFrom,
+      checks.authSecret && checks.emailApiKey && checks.emailFrom,
     checks,
   };
 }

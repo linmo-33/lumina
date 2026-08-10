@@ -7,7 +7,7 @@ Lumina 是一个自托管 AI 图像生成平台，通过兼容 OpenAI Images API
 
 ## 功能
 
-- 邮箱密码注册、Resend 验证码认证、登录与会话管理
+- 邮箱密码注册、Resend 验证码认证、登录、密码找回与会话管理
 - 首次部署向导和首位管理员创建
 - 文生图、批量生成及多种尺寸与质量选项
 - 支持 `gpt-image-2`
@@ -76,8 +76,7 @@ Copy-Item .env.example .env
 ```env
 BETTER_AUTH_URL=https://lumina.example.com
 BETTER_AUTH_SECRET=请替换为至少32位的随机字符串
-CHATGPT2API_BASE_URL=https://your-chatgpt2api.example.com/v1
-CHATGPT2API_KEY=请替换为真实密钥
+LUMINA_CONFIG_ENCRYPTION_KEY=请替换为至少32位的随机字符串
 RESEND_API_KEY=re_请替换为真实密钥
 RESEND_FROM_EMAIL=Lumina <noreply@your-verified-domain.example>
 TZ=Asia/Shanghai
@@ -89,13 +88,14 @@ TZ=Asia/Shanghai
 | --- | --- | --- |
 | `BETTER_AUTH_URL` | 是 | Lumina 的外部访问地址，本地部署可使用 `http://localhost:3000` |
 | `BETTER_AUTH_SECRET` | 是 | Better Auth 签名密钥，至少 32 位，生产环境必须使用随机值 |
-| `RESEND_API_KEY` | 是 | Resend API 密钥，仅在服务端用于发送邮箱验证码 |
-| `RESEND_FROM_EMAIL` | 是 | 验证码发件人，域名必须已在 Resend 中完成验证，可填写 `Lumina <noreply@example.com>` 格式 |
-| `CHATGPT2API_BASE_URL` | 是 | chatgpt2api 的 OpenAI 兼容 API 地址，通常以 `/v1` 结尾 |
-| `CHATGPT2API_KEY` | 是 | chatgpt2api 的访问密钥，仅在服务端读取 |
+| `LUMINA_CONFIG_ENCRYPTION_KEY` | 否 | 后台供应商 API Key 的加密主密钥，建议配置独立的至少 32 位随机值；未配置时使用 `BETTER_AUTH_SECRET` 派生 |
+| `RESEND_API_KEY` | 是 | Resend API 密钥，仅在服务端用于发送邮箱验证码和密码重置链接 |
+| `RESEND_FROM_EMAIL` | 是 | 邮件发件人，域名必须已在 Resend 中完成验证，可填写 `Lumina <noreply@example.com>` 格式 |
 | `TZ` | 否 | 每日灵点补给的重置时区，Docker 镜像默认为 `Asia/Shanghai` |
 
-不要提交 `.env` 或任何真实密钥。容器内的 `localhost` 指向 Lumina 容器自身，因此 chatgpt2api 部署在其他容器或主机时，应填写它在容器网络中可访问的地址。
+不要提交 `.env` 或任何真实密钥。完成首次管理员初始化后，进入后台“系统配置”保存 OpenAI 兼容供应商地址和 API Key，并点击“获取上游模型”。容器内的 `localhost` 指向 Lumina 容器自身，因此上游服务部署在其他容器或主机时，应填写它在容器网络中可访问的地址。
+
+旧版部署仍可通过 `CHATGPT2API_BASE_URL` 和 `CHATGPT2API_KEY` 作为临时回退配置；一旦在后台保存供应商，数据库配置优先。后台只显示 API Key 掩码，不会回显密钥。
 
 ### 3. 启动服务
 
@@ -119,7 +119,7 @@ docker login ghcr.io
 
 ### 4. 完成首次设置
 
-打开 `http://localhost:3000`。应用会自动进入 `/setup`，检查数据库和必要环境变量，然后引导创建首位管理员。
+打开 `http://localhost:3000`。应用会自动进入 `/setup`，检查数据库、认证和邮件环境变量，然后引导创建首位管理员。生图供应商在管理员登录后台后配置。
 
 首位管理员创建成功后，初始化入口会自动锁定。后续注册用户必须完成邮箱验证码认证，默认额度可在管理后台修改。验证码 10 分钟内有效，同一地址每分钟最多请求 3 次。
 
@@ -189,9 +189,11 @@ pnpm db:studio  # 打开 Drizzle Studio
 - 设置默认尺寸、质量及其可选范围
 - 限制单次生成数量和提示词长度
 - 设置新注册用户的默认额度
+- 配置 OpenAI 兼容生图供应商并加密保存 API Key
+- 从供应商 `/models` 接口同步模型，选择可用模型和默认模型
 - 查看管理员操作审计
 
-API 密钥、认证密钥和上游地址始终通过服务器环境变量管理，管理后台不会读取或回显这些敏感值。
+认证密钥和邮件服务仍通过服务器环境变量管理。生图供应商地址和 API Key 通过后台配置，API Key 在数据库中加密保存，管理后台只显示掩码，不会回显明文。
 
 ## 项目结构
 
@@ -204,9 +206,10 @@ src/app/api/                认证、设置、图片和管理 API
 src/components/             公共界面组件
 src/lib/schema.ts           Drizzle 表结构
 src/lib/migrations.ts       SQLite 版本化迁移
-src/lib/openai.ts           chatgpt2api 客户端
+src/lib/openai.ts           生图客户端入口
+src/lib/model-provider.ts   OpenAI 兼容供应商、密钥加密和上游模型同步
 src/lib/email.ts            Resend 邮件发送服务
-src/lib/email-templates/    验证码邮件内容模板
+src/lib/email-templates/    验证码和密码重置邮件内容模板
 src/lib/image-store.ts      本地图片存储
 data/                       运行时数据库目录
 uploads/                    运行时图片目录

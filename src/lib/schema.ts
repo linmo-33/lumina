@@ -150,6 +150,22 @@ export const systemSettings = sqliteTable("system_settings", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
+export const modelProviders = sqliteTable("model_providers", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  providerType: text("provider_type").notNull(),
+  baseUrl: text("base_url").notNull(),
+  apiKeyEncrypted: text("api_key_encrypted").notNull(),
+  apiKeyHint: text("api_key_hint").notNull(),
+  modelIds: text("model_ids").notNull().default("[]"),
+  modelsUpdatedAt: integer("models_updated_at", { mode: "timestamp" }),
+  updatedBy: text("updated_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
 export const adminAuditLogs = sqliteTable("admin_audit_logs", {
   id: text("id").primaryKey(),
   operatorId: text("operator_id")

@@ -27,6 +27,7 @@ import {
 import { AppFooter } from "@/components/app-footer";
 import { notify } from "@/components/app-notifications";
 import { signOut } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 export type ActivePage = "generate" | "gallery" | "rewards" | "profile" | "admin";
 
@@ -144,6 +145,23 @@ export function AppShell({ active, user, quota, children, hideFooter = false }: 
       </header>
       <main className="lumina-app-main">{children}</main>
       {!hideFooter && <AppFooter />}
+      <nav className="lumina-mobile-nav" aria-label="移动端主导航">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = active === item.key;
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              className={cn("lumina-mobile-nav-link", isActive && "is-active")}
+              aria-current={isActive ? "page" : undefined}
+            >
+              <Icon aria-hidden="true" />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

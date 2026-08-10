@@ -3,8 +3,10 @@ import {
   buildVerificationCodeEmail,
   type VerificationCodeType,
 } from "./email-templates/verification-code";
+import { buildPasswordResetEmail } from "./email-templates/password-reset";
 
 export const VERIFICATION_CODE_EXPIRES_IN_SECONDS = 10 * 60;
+export const PASSWORD_RESET_EXPIRES_IN_SECONDS = 60 * 60;
 
 function getEmailConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim();
@@ -36,19 +38,39 @@ export async function sendVerificationCodeEmail(input: {
   code: string;
   type: VerificationCodeType;
 }) {
-  const { apiKey, from } = getEmailConfig();
   const content = buildVerificationCodeEmail({
     code: input.code,
     type: input.type,
     expiresInMinutes: VERIFICATION_CODE_EXPIRES_IN_SECONDS / 60,
   });
+  await sendEmail({
+    to: input.email,
+    ...content,
+    failureMessage: "验证码邮件发送失败，请稍后重试",
+  });
+}
+
+export async function sendPasswordResetEmail(input: { email: string; url: string }) {
+  const content = buildPasswordResetEmail({
+    url: input.url,
+    expiresInMinutes: PASSWORD_RESET_EXPIRES_IN_SECONDS / 60,
+  });
+  await sendEmail({
+    to: input.email,
+    ...content,
+    failureMessage: "密码重置邮件发送失败，请稍后重试",
+  });
+}
+
+async function sendEmail(input: { to: string; subject: string; html: string; text: string; failureMessage: string }) {
+  const { apiKey, from } = getEmailConfig();
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from,
-    to: input.email,
-    subject: content.subject,
-    html: content.html,
-    text: content.text,
+    to: input.to,
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
   });
 
   if (error) {
@@ -56,6 +78,6 @@ export async function sendVerificationCodeEmail(input: {
       name: error.name,
       message: error.message,
     });
-    throw new Error("验证码邮件发送失败，请稍后重试");
+    throw new Error(input.failureMessage);
   }
 }

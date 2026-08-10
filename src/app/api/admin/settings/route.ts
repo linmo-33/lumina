@@ -9,6 +9,7 @@ import {
   SUPPORTED_QUALITIES,
   SUPPORTED_SIZES,
 } from "@/lib/system-settings";
+import { getPublicModelProvider } from "@/lib/model-provider";
 import {
   CHATGPT2API_PAGE_MAX_IMAGES,
   isImageSizeAllowedForModel,
@@ -98,6 +99,23 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message || "配置格式不正确" },
+      { status: 400 },
+    );
+  }
+
+  const provider = await getPublicModelProvider();
+  if (provider.source === "database" && provider.modelIds.length === 0) {
+    return NextResponse.json(
+      { error: "请先获取上游模型，再保存模型策略" },
+      { status: 400 },
+    );
+  }
+  if (
+    provider.source === "database" &&
+    parsed.data.allowedModels.some((model) => !provider.modelIds.includes(model))
+  ) {
+    return NextResponse.json(
+      { error: "可用模型必须来自最近一次同步的上游模型列表" },
       { status: 400 },
     );
   }

@@ -4,11 +4,19 @@ import { Card } from "@/components/ui/card";
 import { AppFooter } from "@/components/app-footer";
 
 interface AuthLayoutProps {
-  mode: "login" | "register";
+  mode: "login" | "register" | "forgot-password" | "reset-password";
   children: React.ReactNode;
 }
 
+const authCopy = {
+  login: { title: "欢迎回来", description: "登录后继续你的创作旅程。" },
+  register: { title: "创建账号", description: "创建账号即可获得初始灵点。" },
+  "forgot-password": { title: "找回密码", description: "我们会向你的注册邮箱发送安全重置链接。" },
+  "reset-password": { title: "设置新密码", description: "使用至少 8 位的新密码保护你的账号。" },
+} as const;
+
 export function AuthLayout({ mode, children }: AuthLayoutProps) {
+  const copy = authCopy[mode];
   return (
     <div className="lumina-auth-page">
       <div className="lumina-auth-shell">
@@ -31,8 +39,8 @@ export function AuthLayout({ mode, children }: AuthLayoutProps) {
         <Card className="lumina-auth-card">
           <div className="lumina-auth-card-heading">
             <p className="lumina-eyebrow">LUMINA STUDIO</p>
-            <h2>{mode === "login" ? "欢迎回来" : "创建账号"}</h2>
-            <p>{mode === "login" ? "登录后继续你的创作旅程。" : "创建账号即可获得初始灵点。"}</p>
+            <h2>{copy.title}</h2>
+            <p>{copy.description}</p>
           </div>
           {children}
         </Card>
