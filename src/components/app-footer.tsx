@@ -3,11 +3,11 @@ import { version } from "../../package.json";
 const GITHUB_REPOSITORY_URL = "https://github.com/linmo-33/lumina";
 
 interface AppFooterProps {
-  variant?: "default" | "login";
+  variant?: "default" | "auth";
 }
 
 export function AppFooter({ variant = "default" }: AppFooterProps) {
-  if (variant === "login") {
+  if (variant === "auth") {
     return (
       <footer className="lumina-footer lumina-footer-login">
         <strong>Lumina</strong>

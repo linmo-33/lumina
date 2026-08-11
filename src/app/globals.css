@@ -367,12 +367,12 @@ a { color: inherit; }
 .lumina-auth-card-heading p:last-child { margin: 8px 0 0; color: var(--muted-foreground); font-size: 14px; }
 .lumina-auth-card form { display: grid; gap: 18px; }
 
-.lumina-auth-page-login { min-height: 100svh; overflow-x: hidden; background: radial-gradient(circle at 18% 18%, rgb(117 104 232 / 10%), transparent 28%), radial-gradient(circle at 83% 42%, rgb(243 204 122 / 8%), transparent 32%), #f8f7f4; }
-.lumina-auth-page-login .lumina-auth-shell { width: min(1280px, calc(100% - 48px)); grid-template-columns: minmax(0, 1fr) minmax(400px, 440px); gap: clamp(64px, 7vw, 112px); padding: 42px 0 36px; }
-.lumina-auth-intro-login { align-self: stretch; align-content: center; gap: 0; }
-.lumina-auth-intro-login .lumina-brand { font-size: 24px; }
-.lumina-auth-intro-login .lumina-brand-mark { width: 32px; height: 32px; }
-.lumina-auth-intro-login .lumina-brand-mark svg { width: 31px; height: 31px; }
+.lumina-auth-page-showcase { min-height: 100svh; overflow-x: hidden; background: radial-gradient(circle at 18% 18%, rgb(117 104 232 / 10%), transparent 28%), radial-gradient(circle at 83% 42%, rgb(243 204 122 / 8%), transparent 32%), #f8f7f4; }
+.lumina-auth-page-showcase .lumina-auth-shell { width: min(1280px, calc(100% - 48px)); grid-template-columns: minmax(0, 1fr) minmax(400px, 440px); gap: clamp(64px, 7vw, 112px); padding: 42px 0 36px; }
+.lumina-auth-intro-showcase { align-self: stretch; align-content: center; gap: 0; }
+.lumina-auth-intro-showcase .lumina-brand { font-size: 24px; }
+.lumina-auth-intro-showcase .lumina-brand-mark { width: 32px; height: 32px; }
+.lumina-auth-intro-showcase .lumina-brand-mark svg { width: 31px; height: 31px; }
 .lumina-login-art { position: relative; width: min(100%, 560px); height: 310px; margin-top: 50px; }
 .lumina-login-artwork { position: absolute; overflow: hidden; border: 3px solid rgb(255 255 255 / 88%); border-radius: 24px; background: white; box-shadow: 0 18px 44px rgb(54 43 92 / 16%); }
 .lumina-login-artwork img { object-fit: cover; }
@@ -387,11 +387,15 @@ a { color: inherit; }
 .lumina-login-capabilities { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 0; padding: 0; list-style: none; }
 .lumina-login-capabilities li { display: inline-flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 16px; color: #484452; font-size: 13px; font-weight: 560; border: 1px solid rgb(109 85 246 / 8%); border-radius: 999px; background: rgb(242 239 255 / 76%); }
 .lumina-login-capabilities svg { width: 16px; height: 16px; color: var(--lumina-violet); stroke-width: 1.8; }
-.lumina-auth-page-login .lumina-auth-card { width: 100%; padding: 40px; border-color: #dedde5; border-radius: 20px; background: rgb(255 255 255 / 94%); box-shadow: 0 16px 50px rgb(37 38 43 / 8%); backdrop-filter: blur(10px); }
-.lumina-auth-page-login .lumina-auth-card-heading { margin-bottom: 34px; }
-.lumina-auth-page-login .lumina-auth-card-heading h2 { margin-top: 12px; font-size: 36px; font-weight: 650; line-height: 1.2; letter-spacing: -.045em; }
-.lumina-auth-page-login .lumina-auth-card-heading p:last-child { margin-top: 10px; font-size: 15px; line-height: 1.6; }
-.lumina-auth-page-login .lumina-eyebrow { font-size: 12px; letter-spacing: .18em; }
+.lumina-auth-page-showcase .lumina-auth-card { width: 100%; padding: 40px; border-color: #dedde5; border-radius: 20px; background: rgb(255 255 255 / 94%); box-shadow: 0 16px 50px rgb(37 38 43 / 8%); backdrop-filter: blur(10px); }
+.lumina-auth-page-showcase .lumina-auth-card-heading { margin-bottom: 34px; }
+.lumina-auth-page-showcase .lumina-auth-card-heading h2 { margin-top: 12px; font-size: 36px; font-weight: 650; line-height: 1.2; letter-spacing: -.045em; }
+.lumina-auth-page-showcase .lumina-auth-card-heading p:last-child { margin-top: 10px; font-size: 15px; line-height: 1.6; }
+.lumina-auth-page-showcase .lumina-eyebrow { font-size: 12px; letter-spacing: .18em; }
+.lumina-auth-page-showcase .lumina-auth-card form:not(.lumina-login-form) { gap: 16px; }
+.lumina-auth-page-showcase .lumina-auth-card form:not(.lumina-login-form) [data-slot="label"] { color: #282731; font-size: 14px; font-weight: 600; }
+.lumina-auth-page-showcase .lumina-auth-card form:not(.lumina-login-form) [data-slot="button"] { min-height: 46px; border-radius: 11px; }
+.lumina-auth-page-showcase .lumina-auth-card form:not(.lumina-login-form) > [data-slot="button"] { color: white; background: linear-gradient(135deg, #724dff, #6d46ee); box-shadow: 0 10px 24px rgb(109 70 238 / 18%); }
 .lumina-auth-card .lumina-login-form { gap: 20px; }
 .lumina-login-field { display: grid; gap: 8px; }
 .lumina-login-field > [data-slot="label"], .lumina-login-label-row [data-slot="label"] { color: #282731; font-size: 14px; font-weight: 600; }
@@ -420,6 +424,21 @@ a { color: inherit; }
 .lumina-login-register a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lumina-login-security { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 38px 0 0; color: #9293a1; font-size: 12px; }
 .lumina-login-security svg { width: 16px; height: 16px; stroke-width: 1.8; }
+.lumina-auth-page-register .lumina-auth-shell { padding-block: 28px; }
+.lumina-register-form, .lumina-forgot-form { display: grid; gap: 16px; }
+.lumina-register-code-status { display: flex; align-items: center; gap: 10px; padding: 11px 12px; color: #25734d; font-size: 12px; line-height: 1.5; border: 1px solid rgb(37 115 77 / 15%); border-radius: 11px; background: rgb(37 115 77 / 6%); }
+.lumina-register-code-status svg { width: 18px; height: 18px; flex: 0 0 auto; }
+.lumina-register-code-row { display: flex; min-width: 0; gap: 10px; }
+.lumina-register-code-row .lumina-login-input-wrap { min-width: 0; flex: 1; }
+.lumina-register-code-button { width: 116px; min-height: 50px !important; flex: 0 0 auto; }
+.lumina-register-code-help, .lumina-forgot-help { margin: 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.55; }
+.lumina-forgot-success { display: grid; justify-items: center; gap: 20px; text-align: center; }
+.lumina-forgot-success-icon { display: grid; width: 62px; height: 62px; place-items: center; color: var(--primary); border: 1px solid rgb(109 85 246 / 11%); border-radius: 20px; background: rgb(109 85 246 / 8%); }
+.lumina-forgot-success-icon svg { width: 28px; height: 28px; }
+.lumina-forgot-success h3 { margin: 0; font-size: 20px; letter-spacing: -.025em; }
+.lumina-forgot-success p { margin: 8px 0 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.7; }
+.lumina-forgot-success .lumina-login-submit { width: 100%; }
+.lumina-forgot-switch { color: var(--primary); }
 .lumina-footer-login { width: 100%; max-width: none; padding: 22px max(24px, calc((100% - 1580px) / 2 + 44px)); border-top: 1px solid rgb(47 45 58 / 10%); }
 .lumina-footer-login strong { color: var(--lumina-ink); font-size: 13px; }
 .lumina-footer-login .lumina-footer-meta { gap: 22px; }
@@ -457,7 +476,7 @@ a { color: inherit; }
 @media (max-width: 1080px) {
   .lumina-app-header { padding-inline: 24px; }
   .lumina-auth-shell { grid-template-columns: 1fr 400px; gap: 44px; }
-  .lumina-auth-page-login .lumina-auth-shell { grid-template-columns: minmax(0, 1fr) 400px; gap: 44px; }
+  .lumina-auth-page-showcase .lumina-auth-shell { grid-template-columns: minmax(0, 1fr) 400px; gap: 44px; }
   .lumina-login-art { width: 500px; transform: scale(.9); transform-origin: left center; }
   .lumina-auth-intro .lumina-login-copy h1 { font-size: 48px; }
   .lumina-create-workspace { grid-template-columns: minmax(340px, 380px) minmax(0, 1fr); gap: 18px; }
@@ -478,10 +497,10 @@ a { color: inherit; }
   .lumina-auth-shell { width: min(100% - 32px, 520px); gap: 32px; padding-block: 36px; }
   .lumina-auth-intro { gap: 28px; }
   .lumina-auth-art { display: none; }
-  .lumina-auth-page-login .lumina-auth-shell { width: min(100% - 40px, 520px); grid-template-columns: 1fr; gap: 30px; padding: 28px 0 34px; }
-  .lumina-auth-intro-login { display: block; }
-  .lumina-auth-intro-login .lumina-login-art, .lumina-auth-intro-login .lumina-login-copy { display: none; }
-  .lumina-auth-page-login .lumina-auth-card { padding: 36px; }
+  .lumina-auth-page-showcase .lumina-auth-shell { width: min(100% - 40px, 520px); grid-template-columns: 1fr; gap: 30px; padding: 28px 0 34px; }
+  .lumina-auth-intro-showcase { display: block; }
+  .lumina-auth-intro-showcase .lumina-login-art, .lumina-auth-intro-showcase .lumina-login-copy { display: none; }
+  .lumina-auth-page-showcase .lumina-auth-card { padding: 36px; }
   .lumina-footer-login { width: 100%; max-width: none; padding: 20px; }
   .lumina-gallery-toolbar { align-items: stretch; flex-direction: column; }
   .lumina-gallery-actions { flex-wrap: wrap; justify-content: flex-start; }
@@ -531,11 +550,11 @@ a { color: inherit; }
   .lumina-lightbox-prompt-content { max-height: min(44vh, 320px); }
   .lumina-auth-shell { width: min(100% - 24px, 520px); }
   .lumina-auth-card { padding: 22px; }
-  .lumina-auth-page-login .lumina-auth-shell { width: min(100% - 40px, 520px); gap: 18px; padding: 22px 0 28px; }
-  .lumina-auth-page-login .lumina-auth-card { padding: 20px 0 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
-  .lumina-auth-page-login .lumina-auth-card-heading { margin-bottom: 28px; }
-  .lumina-auth-page-login .lumina-auth-card-heading h2 { font-size: 32px; }
-  .lumina-auth-page-login .lumina-auth-intro-login .lumina-brand { font-size: 22px; }
+  .lumina-auth-page-showcase .lumina-auth-shell { width: min(100% - 40px, 520px); gap: 18px; padding: 22px 0 28px; }
+  .lumina-auth-page-showcase .lumina-auth-card { padding: 20px 0 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+  .lumina-auth-page-showcase .lumina-auth-card-heading { margin-bottom: 28px; }
+  .lumina-auth-page-showcase .lumina-auth-card-heading h2 { font-size: 32px; }
+  .lumina-auth-page-showcase .lumina-auth-intro-showcase .lumina-brand { font-size: 22px; }
   .lumina-footer-login { width: 100%; max-width: none; padding: 18px 20px; }
   .lumina-footer-login .lumina-footer-meta { flex-wrap: wrap; justify-content: flex-start; gap: 8px 14px; }
   .admin-stat-grid { grid-template-columns: 1fr; }

@@ -4,9 +4,11 @@ import {
   type VerificationCodeType,
 } from "./email-templates/verification-code";
 import { buildPasswordResetEmail } from "./email-templates/password-reset";
+import {
+  PASSWORD_RESET_EXPIRES_IN_MINUTES,
+} from "./auth-constants";
 
 export const VERIFICATION_CODE_EXPIRES_IN_SECONDS = 10 * 60;
-export const PASSWORD_RESET_EXPIRES_IN_SECONDS = 60 * 60;
 
 function getEmailConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim();
@@ -53,7 +55,7 @@ export async function sendVerificationCodeEmail(input: {
 export async function sendPasswordResetEmail(input: { email: string; url: string }) {
   const content = buildPasswordResetEmail({
     url: input.url,
-    expiresInMinutes: PASSWORD_RESET_EXPIRES_IN_SECONDS / 60,
+    expiresInMinutes: PASSWORD_RESET_EXPIRES_IN_MINUTES,
   });
   await sendEmail({
     to: input.email,

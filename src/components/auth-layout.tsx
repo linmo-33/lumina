@@ -18,16 +18,16 @@ const authCopy = {
 
 export function AuthLayout({ mode, children }: AuthLayoutProps) {
   const copy = authCopy[mode];
-  const isLogin = mode === "login";
+  const usesShowcaseLayout = mode === "login" || mode === "register" || mode === "forgot-password";
   return (
-    <div className={`lumina-auth-page${isLogin ? " lumina-auth-page-login" : ""}`}>
+    <div className={`lumina-auth-page lumina-auth-page-${mode}${usesShowcaseLayout ? " lumina-auth-page-showcase" : ""}`}>
       <div className="lumina-auth-shell">
-        <section className={`lumina-auth-intro${isLogin ? " lumina-auth-intro-login" : ""}`}>
+        <section className={`lumina-auth-intro${usesShowcaseLayout ? " lumina-auth-intro-showcase" : ""}`}>
           <Link href="/" className="lumina-brand" aria-label="Lumina">
             <span className="lumina-brand-mark" aria-hidden="true"><Sparkles /></span>
             <span>Lumina</span>
           </Link>
-          {isLogin ? (
+          {usesShowcaseLayout ? (
             <>
               <div className="lumina-login-art" aria-hidden="true">
                 <div className="lumina-login-artwork lumina-login-artwork-mountain">
@@ -67,14 +67,14 @@ export function AuthLayout({ mode, children }: AuthLayoutProps) {
 
         <Card className="lumina-auth-card">
           <div className="lumina-auth-card-heading">
-            <p className="lumina-eyebrow">{isLogin ? "LUMINA" : "LUMINA STUDIO"}</p>
+            <p className="lumina-eyebrow">{usesShowcaseLayout ? "LUMINA" : "LUMINA STUDIO"}</p>
             <h2>{copy.title}</h2>
             <p>{copy.description}</p>
           </div>
           {children}
         </Card>
       </div>
-      <AppFooter variant={isLogin ? "login" : "default"} />
+      <AppFooter variant={usesShowcaseLayout ? "auth" : "default"} />
     </div>
   );
 }

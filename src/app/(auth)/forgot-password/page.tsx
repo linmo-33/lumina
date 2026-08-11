@@ -2,14 +2,14 @@
 
 import { type FormEvent, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, LoaderCircle, MailCheck } from "lucide-react";
+import { ArrowLeft, LoaderCircle, Mail, MailCheck, ShieldCheck } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
 import { notify } from "@/components/app-notifications";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { PASSWORD_RESET_EXPIRES_IN_MINUTES } from "@/lib/auth-constants";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -47,25 +47,24 @@ export default function ForgotPasswordPage() {
   return (
     <AuthLayout mode="forgot-password">
       {sentTo ? (
-        <div className="grid gap-5">
-          <Alert>
-            <MailCheck />
-            <AlertTitle>请检查邮箱</AlertTitle>
-            <AlertDescription>
-              如果 {sentTo} 对应 Lumina 账号，你会收到一封密码重置邮件。链接在 60 分钟内有效。
-            </AlertDescription>
-          </Alert>
-          <Button size="lg" render={<Link href="/login" />}>
+        <div className="lumina-forgot-success">
+          <span className="lumina-forgot-success-icon"><MailCheck aria-hidden="true" /></span>
+          <div>
+            <h3>请检查邮箱</h3>
+            <p>如果 {sentTo} 对应 Lumina 账号，你会收到一封密码重置邮件。链接在 {PASSWORD_RESET_EXPIRES_IN_MINUTES} 分钟内有效。</p>
+          </div>
+          <Button size="lg" className="lumina-login-submit" render={<Link href="/login" />}>
             <ArrowLeft data-icon="inline-start" />
             返回登录
           </Button>
-          <Button variant="ghost" onClick={() => setSentTo("")}>换个邮箱</Button>
+          <Button variant="ghost" className="lumina-forgot-switch" onClick={() => setSentTo("")}>换个邮箱</Button>
         </div>
       ) : (
-        <form className="grid gap-5" onSubmit={handleSubmit}>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="forgot-password-email">注册邮箱</FieldLabel>
+        <form className="lumina-forgot-form" onSubmit={handleSubmit}>
+          <div className="lumina-login-field">
+            <Label htmlFor="forgot-password-email">注册邮箱</Label>
+            <div className="lumina-login-input-wrap">
+              <Mail aria-hidden="true" />
               <Input
                 id="forgot-password-email"
                 type="email"
@@ -75,18 +74,18 @@ export default function ForgotPasswordPage() {
                 autoComplete="email"
                 required
               />
-              <FieldDescription>为保护账号安全，无论邮箱是否存在都会显示相同结果。</FieldDescription>
-            </Field>
-          </FieldGroup>
-          <Button type="submit" size="lg" disabled={sending}>
+            </div>
+            <p className="lumina-forgot-help">为保护账号安全，无论邮箱是否存在都会显示相同结果。</p>
+          </div>
+          <Button type="submit" size="lg" className="lumina-login-submit" disabled={sending}>
             {sending ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : <MailCheck data-icon="inline-start" />}
             {sending ? "正在发送…" : "发送重置链接"}
           </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            想起密码了？ <Link href="/login" className="font-medium text-primary hover:underline">返回登录</Link>
-          </p>
+          <p className="lumina-login-register">想起密码了？ <Link href="/login">返回登录</Link></p>
         </form>
       )}
+
+      <p className="lumina-login-security"><ShieldCheck aria-hidden="true" />你的数据由当前部署实例安全保存</p>
     </AuthLayout>
   );
 }

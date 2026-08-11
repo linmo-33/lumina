@@ -4,8 +4,8 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
+import { PASSWORD_RESET_EXPIRES_IN_SECONDS } from "./auth-constants";
 import {
-  PASSWORD_RESET_EXPIRES_IN_SECONDS,
   sendPasswordResetEmail,
   sendVerificationCodeEmail,
   VERIFICATION_CODE_EXPIRES_IN_SECONDS,
