@@ -31,7 +31,7 @@ export function AuthLayout({ mode, children }: AuthLayoutProps) {
             <>
               <div className="lumina-login-art" aria-hidden="true">
                 <div className="lumina-login-artwork lumina-login-artwork-mountain">
-                  <Image src="/images/auth/mountain-lake.png" alt="" fill sizes="260px" />
+                  <Image src="/images/auth/mountain-lake.png" alt="" fill sizes="260px" loading="eager" />
                 </div>
                 <div className="lumina-login-artwork lumina-login-artwork-floral">
                   <Image src="/images/auth/artwork-floral.png" alt="" fill sizes="240px" preload />
