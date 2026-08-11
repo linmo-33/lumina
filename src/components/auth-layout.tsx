@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import Image from "next/image";
+import { Images, Sparkles, WandSparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { AppFooter } from "@/components/app-footer";
 
@@ -17,35 +18,63 @@ const authCopy = {
 
 export function AuthLayout({ mode, children }: AuthLayoutProps) {
   const copy = authCopy[mode];
+  const isLogin = mode === "login";
   return (
-    <div className="lumina-auth-page">
+    <div className={`lumina-auth-page${isLogin ? " lumina-auth-page-login" : ""}`}>
       <div className="lumina-auth-shell">
-        <section className="lumina-auth-intro">
+        <section className={`lumina-auth-intro${isLogin ? " lumina-auth-intro-login" : ""}`}>
           <Link href="/" className="lumina-brand" aria-label="Lumina">
             <span className="lumina-brand-mark" aria-hidden="true"><Sparkles /></span>
             <span>Lumina</span>
           </Link>
-          <div className="lumina-auth-art" aria-hidden="true">
-            <div className="lumina-auth-orbit lumina-auth-orbit-one" />
-            <div className="lumina-auth-orbit lumina-auth-orbit-two" />
-            <Sparkles className="lumina-auth-art-icon" />
-          </div>
-          <div className="max-w-lg">
-            <h1>让灵感，<br />成为清晰的画面。</h1>
-            <p>描述你的想法，用 Lumina 生成独一无二的图像，并把每一次创作留在你的作品里。</p>
-          </div>
+          {isLogin ? (
+            <>
+              <div className="lumina-login-art" aria-hidden="true">
+                <div className="lumina-login-artwork lumina-login-artwork-mountain">
+                  <Image src="/images/auth/mountain-lake.png" alt="" fill sizes="260px" />
+                </div>
+                <div className="lumina-login-artwork lumina-login-artwork-floral">
+                  <Image src="/images/auth/artwork-floral.png" alt="" fill sizes="240px" preload />
+                </div>
+                <div className="lumina-login-artwork lumina-login-artwork-cloud">
+                  <Image src="/images/auth/cloud-house.png" alt="" fill sizes="230px" />
+                </div>
+                <span className="lumina-login-art-mark"><Sparkles /></span>
+              </div>
+              <div className="lumina-login-copy">
+                <h1>让灵感，<br />成为看得见的作品。</h1>
+                <p>描述你的想法，用 Lumina 生成独一无二的图像，<br className="lumina-login-copy-break" />并把每一次创作留在作品集中。</p>
+                <ul className="lumina-login-capabilities" aria-label="Lumina 能力">
+                  <li><WandSparkles />文生图</li>
+                  <li><Images />图生图</li>
+                </ul>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="lumina-auth-art" aria-hidden="true">
+                <div className="lumina-auth-orbit lumina-auth-orbit-one" />
+                <div className="lumina-auth-orbit lumina-auth-orbit-two" />
+                <Sparkles className="lumina-auth-art-icon" />
+              </div>
+              <div className="max-w-lg">
+                <h1>让灵感，<br />成为清晰的画面。</h1>
+                <p>描述你的想法，用 Lumina 生成独一无二的图像，并把每一次创作留在你的作品里。</p>
+              </div>
+            </>
+          )}
         </section>
 
         <Card className="lumina-auth-card">
           <div className="lumina-auth-card-heading">
-            <p className="lumina-eyebrow">LUMINA STUDIO</p>
+            <p className="lumina-eyebrow">{isLogin ? "LUMINA" : "LUMINA STUDIO"}</p>
             <h2>{copy.title}</h2>
             <p>{copy.description}</p>
           </div>
           {children}
         </Card>
       </div>
-      <AppFooter />
+      <AppFooter variant={isLogin ? "login" : "default"} />
     </div>
   );
 }
